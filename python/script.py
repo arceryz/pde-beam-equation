@@ -7,6 +7,8 @@ import numpy as np
 from numpy import cos, sin, cosh, sinh, exp
 import matplotlib.pyplot as plt
 
+from p_tqdm import p_map
+
 
 #################################################################################
 # Settings.
@@ -27,7 +29,7 @@ def forcing(x, t):
     return 1
 
 def ic_deflection(x):
-    return 0.01*x
+    return 0.00*x
 
 def ic_velocity(x):
     return 0
@@ -290,12 +292,30 @@ def deflection(x, t, n):
 def plot_deflection_2d(t, n):
     pts = 100
     xlist = np.linspace(0, L, pts)
-    ylist = np.zeros(pts)
 
-    for i in range(pts):
-        ylist[i] = deflection(xlist[i], t, n)
-        print("%2.1f%%" % float(i/pts*100))
+    ylist = p_map(lambda x: deflection(x,t,n), xlist, num_cpus=4)
     plt.plot(xlist, ylist)
     plt.show()
 
-plot_deflection_2d(30, motes)
+def plot_deflection_3d(tmax):
+    x_pts = 20
+    t_pts = 10
+
+    tlist = np.linspace(0, tmax, t_pts)
+    xlist = np.linspace(0, L, x_pts)
+    X, T = np.meshgrid(xlist, tlist)
+
+    Z = np.zeros((t_pts, x_pts))
+    Z = np.array(p_map(
+        lambda t: list(map(lambda x: deflection(x, t, motes),xlist)),
+        tlist, num_cpus=4))
+
+    fig = plt.figure()
+    ax = plt.axes(projection='3d')
+    ax.plot_surface(X, T, Z, cmap="viridis")
+    ax.set_xlabel('x')
+    ax.set_ylabel('t')
+    ax.set_zlabel('u(x,t)');
+    plt.show()
+
+plot_deflection_3d(50)
