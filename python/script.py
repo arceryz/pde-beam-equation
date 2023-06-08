@@ -29,7 +29,7 @@ def forcing(x, t):
     return 1
 
 def ic_deflection(x):
-    return 0.00*x
+    return 0.01*x
 
 def ic_velocity(x):
     return 0
@@ -298,8 +298,8 @@ def plot_deflection_2d(t, n):
     plt.show()
 
 def plot_deflection_3d(tmax):
-    x_pts = 20
-    t_pts = 10
+    x_pts = 10
+    t_pts = 30
 
     tlist = np.linspace(0, tmax, t_pts)
     xlist = np.linspace(0, L, x_pts)
@@ -318,4 +318,4 @@ def plot_deflection_3d(tmax):
     ax.set_zlabel('u(x,t)');
     plt.show()
 
-plot_deflection_3d(50)
+plot_deflection_3d(100)
