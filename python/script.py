@@ -20,13 +20,11 @@ I = 1
 mu = 1
 
 motes = 10
-rootfinder = "brentq"
+quad_lowp = 20
 dx = 1e-6
-quad_tolerance_lowp = 1e-4
-quad_tolerance_highp = 1.49e-8
 
 def forcing(x, t):
-    return 1
+    return cos(t/60.0*2*scipy.pi)
 
 def ic_deflection(x):
     return 0.01*x
@@ -44,7 +42,7 @@ def diff(f, x, dx):
 
 def integral_lowp(f, a, b):
 #    return integrate.quadrature(f, a, b, tol=quad_tolerance_lowp)[0]
-    return integrate.quad(f, a, b)[0]
+    return integrate.fixed_quad(lambda xl: list(map(f, xl)), a, b, n=quad_lowp)[0]
 
 def integral_highp(f, a, b):
     #return integrate.quadrature(f, a, b, tol=quad_tolerance_highp)[0]
@@ -68,7 +66,7 @@ def compute_evs():
 
         # Compute the root in normalized coordinates then scale back.
         yr = optimize.root_scalar(ev_function, bracket=[c-r, c+r],
-                                  method=rootfinder).root
+                                  method="brentq").root
         xr = yr/L
         eigenvalues[i] = xr
         alfas[i] = np.sqrt(xr*E*I / mu)
@@ -297,9 +295,10 @@ def plot_deflection_2d(t, n):
     plt.plot(xlist, ylist)
     plt.show()
 
-def plot_deflection_3d(tmax):
+def plot_deflection_3d():
     x_pts = 10
-    t_pts = 30
+    t_pts = 100
+    tmax = 300
 
     tlist = np.linspace(0, tmax, t_pts)
     xlist = np.linspace(0, L, x_pts)
@@ -318,4 +317,4 @@ def plot_deflection_3d(tmax):
     ax.set_zlabel('u(x,t)');
     plt.show()
 
-plot_deflection_3d(100)
+plot_deflection_3d()
