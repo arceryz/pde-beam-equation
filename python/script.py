@@ -100,30 +100,31 @@ def plot_eigenfunc(n):
     pts = 999
     xlist = np.linspace(0, L, pts)
     ylist = np.zeros(pts)
-
     for i in range(pts):
         ylist[i] = phi_eigenfunc(xlist[i], n)
     plt.plot(xlist, ylist)
 
 def plot_eigenfuncs():
+    plt.figure()
     for n in range(3):
         plot_eigenfunc(n)
-    plt.title("First three motes of eigenfunctions")
-    plt.xlabel("Position (x)")
-    plt.ylabel("Y")
+    plt.title("First three motes of eigenfunctions.")
+    plt.xlabel("x")
+    plt.ylabel("y")
     plt.xlim(0, L)
-    plt.show()
 
 def plot_eigenfuncs_high():
+    plt.figure()
     plot_eigenfunc(motes-1)
-    plt.title("Highest motes of eigenfunctions")
-    plt.xlabel("Position (x)")
-    plt.ylabel("Y")
+    plt.title("Highest mote (%d) of eigenfunctions." % (motes-1))
+    plt.xlabel("x")
+    plt.ylabel("y")
     plt.xlim(0, L)
-    plt.show()
 
 #plot_eigenfuncs()
 #plot_eigenfuncs_high()
+#plt.show()
+#exit()
 
 
 #################################################################################
@@ -180,11 +181,16 @@ def plot_fourier_series(testfun):
     for i in range(pts):
         ylist[i] = fourier_eval(xlist[i], coeffs)
         ylist2[i] = testfun(xlist[i])
+    plt.figure()
     plt.plot(xlist, ylist)
     plt.plot(xlist, ylist2)
+    plt.title("Eigenfunction expansion of function.")
+    plt.xlabel("x")
+    plt.ylabel("y")
 
 #plot_fourier_series(lambda x: (x % 100.0) / 100.0)
 #plt.show()
+#exit()
 
 fourier_defl = fourier_coeffs_arr(ic_deflection, motes)
 fourier_vel  = fourier_coeffs_arr(ic_velocity, motes)
@@ -207,7 +213,6 @@ def fourier_force(t, n):
     y = fourier_coeff(lambda x: forcing(x, t), n)
     return y
 
-
 def psi_particular(t, n):
     # A much nicer form of the integral is after some clever algebra.
     # It yields this expression where t is mixed in the integral.
@@ -224,12 +229,20 @@ def plot_psi(n):
 
     for i in range(pts):
         ylist[i] = psi_particular(tlist[i],n)
-    plt.plot(tlist, ylist)
+    plt.plot(tlist, ylist, label="psi %d" % n)
 
-#plot_psi(0)
-#plot_psi(1)
-#plot_psi(2)
+def plot_psi_test(n):
+    plt.figure()
+    for i in range(n):
+        plot_psi(i)
+    plt.legend()
+    plt.xlabel("t")
+    plt.ylabel("y")
+    plt.title("First %d psi_n particular solutions." % n)
+
+#plot_psi_test(5)
 #plt.show()
+#exit()
 
 
 #################################################################################
@@ -260,19 +273,32 @@ def plot_time(n):
     ylist = np.zeros(pts)
     for i in range(pts):
         ylist[i] = time_coeff(tlist[i], n)
-    plt.plot(tlist, ylist)
+    plt.plot(tlist, ylist, label="b%d(t)" % n)
 
 def plot_time_constants():
     xlist = range(motes)
+    plt.figure()
     plt.plot(xlist, alist, label="A coeff")
     plt.plot(xlist, blist, label="B coeff")
-    plt.xlabel("mote (n)")
+    plt.title("Time constants An and Bn")
+    plt.xlabel("n")
+    plt.ylabel("y")
     plt.legend()
-    plt.show()
+
+def plot_time_test(n):
+    plt.figure()
+    for i in range(n):
+        plot_time(i)
+    plt.title("First %d time solutions bn." % n)
+    plt.xlabel("t")
+    plt.ylabel("y")
 
 compute_constants_ab()
+
 #plot_time_constants()
-#plot_time(1)
+#plot_time_test(5)
+#plt.show()
+#exit()
 
 
 #################################################################################
@@ -288,20 +314,28 @@ def deflection(x, t, n):
         y += time_coeff(t, i) * phi_eigenfunc(x, i)
     return y
 
-def plot_deflection_2d(t, n):
-    pts = 100
+def plot_deflection_2d(t, pts):
     xlist = np.linspace(0, L, pts)
+    ylist = p_map(lambda x: deflection(x,t,motes), xlist, num_cpus=cpu_count)
 
-    ylist = p_map(lambda x: deflection(x,t,n), xlist, num_cpus=4)
+    plt.figure()
+    plt.title("Deflection u(x,t) at time t=%3.1f in space." % t)
+    plt.xlabel("x (meters)")
+    plt.ylabel("u (meters)")
     plt.plot(xlist, ylist)
-    plt.show()
 
-def plot_deflection_3d():
-    x_pts = 10
-    t_pts = 100
-    tmax = 300
+def plot_deflection_point_2d(x, tstart, tend, pts):
+    tlist = np.linspace(tstart, tend, pts)
+    ylist = p_map(lambda t: deflection(x,t,motes), tlist, num_cpus=cpu_count)
 
-    tlist = np.linspace(0, tmax, t_pts)
+    plt.figure()
+    plt.title("Deflection u(x,t) at x=L in time.")
+    plt.xlabel("t (seconds)")
+    plt.ylabel("u (meters)")
+    plt.plot(tlist, ylist)
+
+def plot_deflection_3d(tstart, tend, x_pts, t_pts):
+    tlist = np.linspace(tstart, tend, t_pts)
     xlist = np.linspace(0, L, x_pts)
     X, T = np.meshgrid(xlist, tlist)
 
@@ -310,12 +344,22 @@ def plot_deflection_3d():
         lambda t: list(map(lambda x: deflection(x, t, motes),xlist)),
         tlist, num_cpus=cpu_count))
 
-    fig = plt.figure()
-    ax = plt.axes(projection='3d')
+    plt.figure()
+    ax = plt.axes(projection="3d")
     ax.plot_surface(X, T, Z, cmap="viridis")
-    ax.set_xlabel('x')
-    ax.set_ylabel('t')
-    ax.set_zlabel('u(x,t)');
-    plt.show()
+    ax.set_title("Deflection u(x,t) in space and time.")
+    ax.set_xlabel('x (meters)')
+    ax.set_ylabel('t (seconds)')
+    ax.set_zlabel('u (meters)');
 
-plot_deflection_3d()
+# High precision single sample test.
+#plot_deflection_2d(10, 200)
+#plot_deflection_3d(8, 14, 100, 10)
+
+# Periodicity test.
+plot_deflection_point_2d(L, 0, 300, 100)
+
+# Overview plot.
+plot_deflection_3d(0, 300, 10, 50)
+
+plt.show()
