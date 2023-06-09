@@ -22,6 +22,7 @@ mu = 1
 motes = 10
 quad_lowp = 20
 dx = 1e-6
+cpu_count = 4
 
 def forcing(x, t):
     return cos(t/60.0*2*scipy.pi)
@@ -307,7 +308,7 @@ def plot_deflection_3d():
     Z = np.zeros((t_pts, x_pts))
     Z = np.array(p_map(
         lambda t: list(map(lambda x: deflection(x, t, motes),xlist)),
-        tlist, num_cpus=4))
+        tlist, num_cpus=cpu_count))
 
     fig = plt.figure()
     ax = plt.axes(projection='3d')
