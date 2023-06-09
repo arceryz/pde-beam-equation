@@ -2,11 +2,9 @@
 import scipy
 import scipy.optimize as optimize
 import scipy.integrate as integrate
-from scipy.misc import derivative
 import numpy as np
 from numpy import cos, sin, cosh, sinh, exp
 import matplotlib.pyplot as plt
-
 from p_tqdm import p_map
 
 
@@ -42,11 +40,9 @@ def diff(f, x, dx):
     return (f(x) + f(x+dx))/dx
 
 def integral_lowp(f, a, b):
-#    return integrate.quadrature(f, a, b, tol=quad_tolerance_lowp)[0]
     return integrate.fixed_quad(lambda xl: list(map(f, xl)), a, b, n=quad_lowp)[0]
 
 def integral_highp(f, a, b):
-    #return integrate.quadrature(f, a, b, tol=quad_tolerance_highp)[0]
     return integrate.quad(f, a, b)[0]
 
 
@@ -137,11 +133,15 @@ def plot_eigenfuncs_high():
 def phi_inner(n):
     return L
 
+def phi_inner_num(n):
+    return integral_highp(lambda x: phi_eigenfunc(x, n)**2, 0, L)
+
 def test_phi_inner():
     for n in range(0, 10):
      print(phi_inner_num(n))
 
-#test_phi_inner():
+#test_phi_inner()
+#exit()
 
 # We conclude from these prints that the integral <phi,phi> = L. Thus we skip
 # computing this integral and use it without proof.
