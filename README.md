@@ -18,3 +18,10 @@ There is only a few dependencies:
 The simulations are computed in parallel with as many threads as specified by
 `cpu_count` default to 4. If running on a stronger computer make sure to
 increase this parameter.
+
+More resources can be found on
+[wikipedia](https://en.wikipedia.org/wiki/Euler%E2%80%93Bernoulli_beam_theory).
+The mathematics underlying these scripts/formulas are all derived in a neat
+mathematical report (not yet available). This contains all the derivations for
+formulas implemented numerically here. Before programming there was lots of
+analytical solving, it is not magic.
