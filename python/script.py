@@ -2,8 +2,9 @@
 import scipy
 import scipy.optimize as optimize
 import scipy.integrate as integrate
+from scipy import pi
 import numpy as np
-from numpy import cos, sin, cosh, sinh, exp
+from numpy import cos, sin, cosh, sinh, exp, abs
 import matplotlib.pyplot as plt
 from p_tqdm import p_map
 import json
@@ -14,18 +15,30 @@ import os
 # Settings.
 #################################################################################
 
+# Beam constants.
 L = 200
 E = 1 
 I = 1
 mu = 1
+R = 1
+ocean_density = 1030
+inertia_coeff = 1
+drag_coeff = 2
 
+# Wave constants.
+wave_period = 1
+wave_amp = 1
+wave_length = 1
+depth = 100
+
+# PDE constants.
 motes = 10
 quad_lowp = 20
 dx = 1e-6
-cpu_count = os.cpu_count()
+cpu_count = 4
 
 def forcing(x, t):
-    return cos(t/60.0*2*scipy.pi)
+    return cos(t/60.0*2*pi)
 
 def ic_deflection(x):
     return 0.01*x
@@ -70,6 +83,54 @@ def load_json(filename):
 
 
 #################################################################################
+# The wave equation.
+#
+# In this section we define the wave forcing function and 
+# we analyse it with some plots.
+#################################################################################
+
+cross_section = pi * R**2
+volume = cross_section * L
+omega = 2*pi/wave_period
+k = 2*pi/wave_length
+
+def wave_vel(x, t):
+#    C = exp(k*H)
+#    y = sigma * wave_amp * (exp(k*z)*C + exp(-k*z)/C) / (C - 1/C) * cos(sigma*t)
+    y = omega * wave_amp * sin(omega*t) * cosh(k*depth - k*x)/sinh(k*depth)
+    return y
+
+def wave_acc(x, t):
+    y = omega**2 * wave_amp * cos(omega*t) * cosh(k*depth - k*x)/sinh(k*depth)
+    return y
+
+def morrison(x, t):
+    v = wave_vel(x,t)
+    inertia_f = ocean_density * inertia_coeff * volume * wave_acc(x,t)
+    drag_f = 0.5 * drag_coeff * ocean_density * cross_section * v*abs(v)
+    y = inertia_f + drag_f
+    return y
+
+def plot_wave_speed_2d(t):
+    pts = 999
+    zlist = np.linspace(0, depth/10, 999)
+    ylist = np.zeros(pts)
+
+    for i in range(pts):
+        ylist[i] = wave_vel(zlist[i], t)
+
+    plt.figure()
+    plt.title("Wave speed at time t=%3.1f against depth" % t)
+    plt.xlabel("depth (m)")
+    plt.ylabel("speed (m/s)")
+    plt.plot(zlist, ylist)
+
+#plot_wave_speed_2d(0.5*pi/omega)
+#plt.show()
+#exit()
+
+
+#################################################################################
 # Computing the eigenvalues.
 #################################################################################
 
@@ -82,7 +143,7 @@ def ev_function(x) -> float:
 def compute_evs():
     r = 0.3043077 * 1.1
     for i in range(0, motes):
-        c = scipy.pi * (i + 0.5)
+        c = pi * (i + 0.5)
 
         # Compute the root in normalized coordinates then scale back.
         yr = optimize.root_scalar(ev_function, bracket=[c-r, c+r],
@@ -378,7 +439,8 @@ def plot_deflection_3d_data(data):
     ax.set_zlabel('u (meters)');
 
 def plot_deflection_3d(tstart, tend, x_pts, t_pts):
-    plot_deflection_3d_data(compute_deflection_3d(tstart, tend, x_pts, t_pts))
+    data = compute_deflection_3d(tstart, tend, x_pts, t_pts)
+    plot_deflection_3d_data(data)
 
 def plot_deflection_heatmap(data, interp="spline36"):
     plt.figure()
