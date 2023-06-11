@@ -1,0 +1,12 @@
+#!/bin/sh
+
+if [ "$1" = "push" ]; then
+	echo "Sending pde script to Delftblue..."
+	rsync -P script.py delftblue:/home/timothyvanderv/pde-beam
+	echo "Done"
+fi
+
+if [ "$1" = "pull" ]; then
+	echo "Pulling data from Delftblue..."
+	rsync -rP delftblue:/home/timothyvanderv/pde-beam/data/ delftblue_data
+fi

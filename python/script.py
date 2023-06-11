@@ -6,6 +6,8 @@ import numpy as np
 from numpy import cos, sin, cosh, sinh, exp
 import matplotlib.pyplot as plt
 from p_tqdm import p_map
+import json
+import os
 
 
 #################################################################################
@@ -20,7 +22,7 @@ mu = 1
 motes = 10
 quad_lowp = 20
 dx = 1e-6
-cpu_count = 4
+cpu_count = os.cpu_count()
 
 def forcing(x, t):
     return cos(t/60.0*2*scipy.pi)
@@ -44,6 +46,27 @@ def integral_lowp(f, a, b):
 
 def integral_highp(f, a, b):
     return integrate.quad(f, a, b)[0]
+
+# Tools for serializing numpy arrays and likes.
+class NumpyArrayEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return json.JSONEncoder.default(self, obj)
+
+def save_json(filename, obj):
+    fh = open(filename, "w")
+    json.dump(obj, fh, indent=1, cls=NumpyArrayEncoder)
+    fh.close()
+
+def load_json(filename):
+    fh = open(filename, "r")
+    data = json.load(fh)
+    for k in data:
+        if isinstance(data[k], list):
+            data[k] = np.asarray(data[k])
+    fh.close()
+    return data
 
 
 #################################################################################
@@ -314,10 +337,10 @@ def deflection(x, t, n):
         y += time_coeff(t, i) * phi_eigenfunc(x, i)
     return y
 
+# Convenience methods.
 def plot_deflection_2d(t, pts):
     xlist = np.linspace(0, L, pts)
     ylist = p_map(lambda x: deflection(x,t,motes), xlist, num_cpus=cpu_count)
-
     plt.figure()
     plt.title("Deflection u(x,t) at time t=%3.1f in space." % t)
     plt.xlabel("x (meters)")
@@ -327,14 +350,13 @@ def plot_deflection_2d(t, pts):
 def plot_deflection_point_2d(x, tstart, tend, pts):
     tlist = np.linspace(tstart, tend, pts)
     ylist = p_map(lambda t: deflection(x,t,motes), tlist, num_cpus=cpu_count)
-
     plt.figure()
     plt.title("Deflection u(x,t) at x=L in time.")
     plt.xlabel("t (seconds)")
     plt.ylabel("u (meters)")
     plt.plot(tlist, ylist)
 
-def plot_deflection_3d(tstart, tend, x_pts, t_pts):
+def compute_deflection_3d(tstart, tend, x_pts, t_pts):
     tlist = np.linspace(tstart, tend, t_pts)
     xlist = np.linspace(0, L, x_pts)
     X, T = np.meshgrid(xlist, tlist)
@@ -343,23 +365,57 @@ def plot_deflection_3d(tstart, tend, x_pts, t_pts):
     Z = np.array(p_map(
         lambda t: list(map(lambda x: deflection(x, t, motes),xlist)),
         tlist, num_cpus=cpu_count))
+    return { "X": xlist, "T": tlist, "Z": Z }
 
+def plot_deflection_3d_data(data):
+    X, T = np.meshgrid(data["X"], data["T"])
     plt.figure()
     ax = plt.axes(projection="3d")
-    ax.plot_surface(X, T, Z, cmap="viridis")
+    ax.plot_surface(X, T, data["Z"], cmap="viridis", rstride=1, cstride=1)
     ax.set_title("Deflection u(x,t) in space and time.")
     ax.set_xlabel('x (meters)')
     ax.set_ylabel('t (seconds)')
     ax.set_zlabel('u (meters)');
 
+def plot_deflection_3d(tstart, tend, x_pts, t_pts):
+    plot_deflection_3d_data(compute_deflection_3d(tstart, tend, x_pts, t_pts))
+
+def plot_deflection_heatmap(data, interp="spline36"):
+    plt.figure()
+    plt.title("Heatmap of deflection u(x,t) in space and time")
+    plt.xlabel("t (seconds)")
+    plt.ylabel("x (meters)")
+    z_trans = np.transpose(data["Z"])
+    extents = (min(data["T"]), max(data["T"]), 0, L)
+    plt.imshow(z_trans,
+               aspect="auto",
+               origin="lower",
+               extent=extents,
+               interpolation=interp)
+    plt.colorbar(label="Deflection (meters)")
+
+# ***Delftblue compute jobs***
+# Only run this on delftblue since your computer will go brr.
+#save_json("data/3d_hires.json", compute_deflection_3d(0, 600, 50, 200))
+
 # High precision single sample test.
-#plot_deflection_2d(10, 200)
+#plot_deflection_2d(440, 200)
 #plot_deflection_3d(8, 14, 100, 10)
 
 # Periodicity test.
-plot_deflection_point_2d(L, 0, 300, 100)
+#plot_deflection_point_2d(L, 0, 300, 100)
 
 # Overview plot.
-plot_deflection_3d(0, 300, 10, 50)
+#plot_deflection_3d(0, 300, 10, 50)
+#plot_deflection_3d_data(load_json("delftblue_data/3d_hires.json"))
 
+# ** Heatmaps **
+# Be careful with heatmaps that the interpolation mode (default "spline36")
+# is not giving false impressions of the data. If not certain, use "nearest". 
+# Then the heatmap becomes pixellated but the data is presented as-is.
+#plot_deflection_heatmap(load_json("data/3d_test.json"), "nearest")
+#plot_deflection_heatmap(load_json("data/3d_test.json"), "spline36")
+plot_deflection_heatmap(load_json("delftblue_data/3d_hires.json"))
+
+# Plot the results.
 plt.show()
