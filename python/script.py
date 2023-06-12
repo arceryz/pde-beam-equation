@@ -17,18 +17,20 @@ import os
 
 # Beam constants.
 L = 200
-E = 1 
-I = 1
-mu = 1
-R = 1
+E = 210 
+I = 0.88
+mu = 5487
+R1 = 2.2
+R2 = 2.25
 ocean_density = 1030
-inertia_coeff = 1
-drag_coeff = 2
+Ca = 0.33496
+Cd = 1.17
+
 
 # Wave constants.
-wave_period = 1
-wave_amp = 1
-wave_length = 1
+wave_period = 5.7
+wave_amp = 1.5
+wave_length = 33.8
 depth = 100
 
 # PDE constants.
@@ -37,8 +39,24 @@ quad_lowp = 20
 dx = 1e-6
 cpu_count = 4
 
+
+omega = 2*pi/wave_period
+k = 2*pi/wave_length
+V = pi*(R2**2 - R1**2)
+
+
 def forcing(x, t):
-    return cos(t/60.0*2*pi)
+    cutoffpoint=1
+    tcut=30
+    Omega=1
+    Amplitude=0
+    m=mu*V
+    if x <= cutoffpoint and t<= tcut:
+        return morrison(x, t) - m*(Omega**2)*Amplitude*cos(Omega*t)
+    else:
+        return morrison(x, t) 
+    #return(0)
+    #return Morison(x,t) + cos(t/60.0*2*pi) #timo idee
 
 def ic_deflection(x):
     return 0.01*x
@@ -89,25 +107,20 @@ def load_json(filename):
 # we analyse it with some plots.
 #################################################################################
 
-cross_section = pi * R**2
-volume = cross_section * L
-omega = 2*pi/wave_period
-k = 2*pi/wave_length
+
 
 def wave_vel(x, t):
-#    C = exp(k*H)
-#    y = sigma * wave_amp * (exp(k*z)*C + exp(-k*z)/C) / (C - 1/C) * cos(sigma*t)
-    y = omega * wave_amp * sin(omega*t) * cosh(k*depth - k*x)/sinh(k*depth)
+    y = omega * wave_amp * cos(omega*t) * cosh(k*x)/sinh(k*depth)
     return y
 
 def wave_acc(x, t):
-    y = omega**2 * wave_amp * cos(omega*t) * cosh(k*depth - k*x)/sinh(k*depth)
+    y = -omega**2 * wave_amp * sin(omega*t) * cosh(k*x)/sinh(k*depth)
     return y
 
 def morrison(x, t):
     v = wave_vel(x,t)
-    inertia_f = ocean_density * inertia_coeff * volume * wave_acc(x,t)
-    drag_f = 0.5 * drag_coeff * ocean_density * cross_section * v*abs(v)
+    inertia_f = ocean_density * (1+Ca) * V * wave_acc(x,t)
+    drag_f = 0.5 * Cd * ocean_density * 2*R2 * v*abs(v)
     y = inertia_f + drag_f
     return y
 
@@ -458,6 +471,7 @@ def plot_deflection_heatmap(data, interp="spline36"):
 
 
 if __name__ == "__main__":
+    __spec__ = None
     # ***Delftblue compute jobs***
     # Only run this on delftblue since your computer will go brr.
     #save_json("data/3d_hires.json", compute_deflection_3d(0, 600, 50, 200))
@@ -470,7 +484,7 @@ if __name__ == "__main__":
     #plot_deflection_point_2d(L, 0, 300, 100)
 
     # Overview plot.
-    #plot_deflection_3d(0, 300, 10, 50)
+    plot_deflection_3d(0, 300, 10, 50)
     #plot_deflection_3d_data(load_json("delftblue_data/3d_hires.json"))
 
     # ** Heatmaps **
@@ -479,7 +493,7 @@ if __name__ == "__main__":
     # Then the heatmap becomes pixellated but the data is presented as-is.
     #plot_deflection_heatmap(load_json("data/3d_test.json"), "nearest")
     #plot_deflection_heatmap(load_json("data/3d_test.json"), "spline36")
-    plot_deflection_heatmap(load_json("delftblue_data/3d_hires.json"))
+    #plot_deflection_heatmap(load_json("delftblue_data/3d_hires.json"))
 
     # Plot the results.
     plt.show()
