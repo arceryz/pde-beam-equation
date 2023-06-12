@@ -456,28 +456,30 @@ def plot_deflection_heatmap(data, interp="spline36"):
                interpolation=interp)
     plt.colorbar(label="Deflection (meters)")
 
-# ***Delftblue compute jobs***
-# Only run this on delftblue since your computer will go brr.
-#save_json("data/3d_hires.json", compute_deflection_3d(0, 600, 50, 200))
 
-# High precision single sample test.
-#plot_deflection_2d(440, 200)
-#plot_deflection_3d(8, 14, 100, 10)
+if __name__ == "__main__":
+    # ***Delftblue compute jobs***
+    # Only run this on delftblue since your computer will go brr.
+    #save_json("data/3d_hires.json", compute_deflection_3d(0, 600, 50, 200))
 
-# Periodicity test.
-#plot_deflection_point_2d(L, 0, 300, 100)
+    # High precision single sample test.
+    #plot_deflection_2d(440, 200)
+    #plot_deflection_3d(8, 14, 100, 10)
 
-# Overview plot.
-#plot_deflection_3d(0, 300, 10, 50)
-#plot_deflection_3d_data(load_json("delftblue_data/3d_hires.json"))
+    # Periodicity test.
+    #plot_deflection_point_2d(L, 0, 300, 100)
 
-# ** Heatmaps **
-# Be careful with heatmaps that the interpolation mode (default "spline36")
-# is not giving false impressions of the data. If not certain, use "nearest". 
-# Then the heatmap becomes pixellated but the data is presented as-is.
-#plot_deflection_heatmap(load_json("data/3d_test.json"), "nearest")
-#plot_deflection_heatmap(load_json("data/3d_test.json"), "spline36")
-plot_deflection_heatmap(load_json("delftblue_data/3d_hires.json"))
+    # Overview plot.
+    #plot_deflection_3d(0, 300, 10, 50)
+    #plot_deflection_3d_data(load_json("delftblue_data/3d_hires.json"))
 
-# Plot the results.
-plt.show()
+    # ** Heatmaps **
+    # Be careful with heatmaps that the interpolation mode (default "spline36")
+    # is not giving false impressions of the data. If not certain, use "nearest". 
+    # Then the heatmap becomes pixellated but the data is presented as-is.
+    #plot_deflection_heatmap(load_json("data/3d_test.json"), "nearest")
+    #plot_deflection_heatmap(load_json("data/3d_test.json"), "spline36")
+    plot_deflection_heatmap(load_json("delftblue_data/3d_hires.json"))
+
+    # Plot the results.
+    plt.show()
