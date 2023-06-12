@@ -176,9 +176,10 @@ def plot_morrison_3d(tstart, tend, x_pts, t_pts):
 
 #plot_wave_speed_2d(0)
 #plot_morrison_2d(1)
-plot_morrison_3d(0, 300, 100, 100)
-#plt.show()
-#exit()
+if __name__ == "__main__":
+    plot_morrison_3d(0, 300, 100, 100)
+    plt.show()
+    exit()
 
 
 #################################################################################
