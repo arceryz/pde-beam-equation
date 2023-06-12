@@ -31,7 +31,7 @@ Cd = 1.17
 wave_period = 5.7
 wave_amp = 1.5
 wave_length = 33.8
-depth = 100
+depth = 50
 
 # PDE constants.
 motes = 10
@@ -154,17 +154,31 @@ def plot_morrison_2d(t):
 
     for i in range(pts):
         ylist[i] = morrison(zlist[i], t)
-
     plt.figure()
-    plt.title("Morrison equation at time t=%3.1f" % t)
-    plt.xlabel("height from ocean floor (m)")
-    plt.ylabel("force")
-    plt.plot(zlist, ylist)
+    plt.plot(zlist, ylist, label="t=%3.1f" % t)
+
+def plot_morrison_3d(tstart, tend, x_pts, t_pts):
+    tlist = np.linspace(tstart, tend, t_pts)
+    xlist = np.linspace(0, L, x_pts)
+    X, T = np.meshgrid(xlist, tlist)
+
+    Z = np.zeros((t_pts, x_pts))
+    Z = np.array(p_map(
+        lambda t: list(map(lambda x: morrison(x, t),xlist)),
+        tlist, num_cpus=cpu_count))
+    plt.figure()
+    ax = plt.axes(projection="3d")
+    ax.plot_surface(X, T, Z, cmap="viridis", rstride=1, cstride=1)
+    ax.set_title("Morrison m(x,t) in space and time.")
+    ax.set_xlabel('x (meters)')
+    ax.set_ylabel('t (seconds)')
+    ax.set_zlabel('force (newton)');
 
 #plot_wave_speed_2d(0)
-plot_morrison_2d(0)
-plt.show()
-exit()
+#plot_morrison_2d(1)
+plot_morrison_3d(0, 300, 100, 100)
+#plt.show()
+#exit()
 
 
 #################################################################################
@@ -508,8 +522,8 @@ if __name__ == "__main__":
     plot_deflection_point_2d(L, 0, 300, 100)
 
     # Overview plot.
-    data = compute_deflection_3d(0, 300, 10, 50)
-    plot_deflection_3d_data(data)
+#    data = compute_deflection_3d(0, 300, 10, 50)
+#    plot_deflection_3d_data(data)
     #plot_deflection_3d_data(load_json("delftblue_data/3d_hires.json"))
 
     # ** Heatmaps **
