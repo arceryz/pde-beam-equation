@@ -46,20 +46,11 @@ V = pi*(R2**2 - R1**2)
 
 
 def forcing(x, t):
-    cutoffpoint=1
-    tcut=30
-    Omega=1
-    Amplitude=0
-    m=mu*V
-    if x <= cutoffpoint and t<= tcut:
-        return morrison(x, t) - m*(Omega**2)*Amplitude*cos(Omega*t)
-    else:
-        return morrison(x, t) 
-    #return(0)
-    #return Morison(x,t) + cos(t/60.0*2*pi) #timo idee
+    y = morrison(x, t)
+    return y
 
 def ic_deflection(x):
-    return 0.01*x
+    return 0.00*x
 
 def ic_velocity(x):
     return 0
@@ -101,13 +92,29 @@ def load_json(filename):
 
 
 #################################################################################
+# Earthquake.
+#################################################################################
+
+def forcing_earthquake(x, t):
+    cutoffpoint=1
+    tcut=30
+    Omega=1
+    Amplitude=0
+    m=mu*V
+    if x <= cutoffpoint and t<= tcut:
+        return morrison(x, t) - m*(Omega**2)*Amplitude*cos(Omega*t)
+    else:
+        return morrison(x, t) 
+    #return(0)
+    #return Morison(x,t) + cos(t/60.0*2*pi) #timo idee
+
+
+#################################################################################
 # The wave equation.
 #
 # In this section we define the wave forcing function and 
 # we analyse it with some plots.
 #################################################################################
-
-
 
 def wave_vel(x, t):
     y = omega * wave_amp * cos(omega*t) * cosh(k*x)/sinh(k*depth)
@@ -118,6 +125,8 @@ def wave_acc(x, t):
     return y
 
 def morrison(x, t):
+    if x > depth:
+        return 0
     v = wave_vel(x,t)
     inertia_f = ocean_density * (1+Ca) * V * wave_acc(x,t)
     drag_f = 0.5 * Cd * ocean_density * 2*R2 * v*abs(v)
@@ -126,7 +135,7 @@ def morrison(x, t):
 
 def plot_wave_speed_2d(t):
     pts = 999
-    zlist = np.linspace(0, depth/10, 999)
+    zlist = np.linspace(0, depth, 999)
     ylist = np.zeros(pts)
 
     for i in range(pts):
@@ -134,13 +143,28 @@ def plot_wave_speed_2d(t):
 
     plt.figure()
     plt.title("Wave speed at time t=%3.1f against depth" % t)
-    plt.xlabel("depth (m)")
+    plt.xlabel("height from ocean floor (m)")
     plt.ylabel("speed (m/s)")
     plt.plot(zlist, ylist)
 
-#plot_wave_speed_2d(0.5*pi/omega)
-#plt.show()
-#exit()
+def plot_morrison_2d(t):
+    pts = 999
+    zlist = np.linspace(0, L, 999)
+    ylist = np.zeros(pts)
+
+    for i in range(pts):
+        ylist[i] = morrison(zlist[i], t)
+
+    plt.figure()
+    plt.title("Morrison equation at time t=%3.1f" % t)
+    plt.xlabel("height from ocean floor (m)")
+    plt.ylabel("force")
+    plt.plot(zlist, ylist)
+
+#plot_wave_speed_2d(0)
+plot_morrison_2d(0)
+plt.show()
+exit()
 
 
 #################################################################################
@@ -481,10 +505,11 @@ if __name__ == "__main__":
     #plot_deflection_3d(8, 14, 100, 10)
 
     # Periodicity test.
-    #plot_deflection_point_2d(L, 0, 300, 100)
+    plot_deflection_point_2d(L, 0, 300, 100)
 
     # Overview plot.
-    plot_deflection_3d(0, 300, 10, 50)
+    data = compute_deflection_3d(0, 300, 10, 50)
+    plot_deflection_3d_data(data)
     #plot_deflection_3d_data(load_json("delftblue_data/3d_hires.json"))
 
     # ** Heatmaps **
@@ -494,6 +519,7 @@ if __name__ == "__main__":
     #plot_deflection_heatmap(load_json("data/3d_test.json"), "nearest")
     #plot_deflection_heatmap(load_json("data/3d_test.json"), "spline36")
     #plot_deflection_heatmap(load_json("delftblue_data/3d_hires.json"))
+    #plot_deflection_heatmap(data)
 
     # Plot the results.
     plt.show()
