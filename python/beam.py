@@ -16,7 +16,7 @@ import os
 
 # Beam settings.
 L = 150
-H = 40
+H = 50
 E = 200*1e+9
 R1 = 2.2
 R2 = 2.25
@@ -33,7 +33,7 @@ wave_amp = 1.5
 wave_length = 33.8
 
 # Numerical settings.
-motes = 10
+motes = 5
 quad_lowp = 20
 dx = 1e-6
 cpu_count = 4
@@ -103,7 +103,7 @@ def forcing(x, t):
     return morisson(x, t)
 
 def ic_deflection(x):
-    return 0.00*x
+    return 0
 
 def ic_velocity(x):
     return 0
@@ -244,6 +244,29 @@ def plot_eigenfuncs_high():
 
 
 #################################################################################
+# Computation of morisson fourier fractions.
+#
+#################################################################################
+
+mf_iner = np.zeros(motes)
+mf_drag = np.zeros(motes)
+
+def morisson_fract_iner(n):
+    y = integral_highp(lambda x: cosh(k*x)/S*phi_eigenfunc(x,n), 0, H)
+    return y
+
+def morisson_fract_drag(n):
+    y = integral_highp(lambda x: (cosh(k*x)/S)**2*phi_eigenfunc(x,n), 0, H)
+    return y
+
+def compute_mfracts():
+    for i in range(motes):
+        mf_iner[i] = morisson_fract_iner(i)
+        mf_drag[i] = morisson_fract_drag(i)
+    pass
+
+
+#################################################################################
 # Fourier coefficients computation.
 #
 # In this section we compute the integrals for fourier coefficients of
@@ -252,11 +275,7 @@ def plot_eigenfuncs_high():
 #################################################################################
 
 def fourier_coeff(f, n) -> float:
-    y = integral_lowp(lambda x: f(x)*phi_eigenfunc(x, n), 0, L) / L
-    return y
-
-def fourier_morisson(t, n) -> float:
-    y = integral_lowp(lambda x: morisson(x,t)*phi_eigenfunc(x, n), 0, H) / L
+    y = integral_lowp(lambda x: f(x)*phi_eigenfunc(x, n), 0, H) / L
     return y
 
 def fourier_coeffs_arr(f, n) -> np.array:
@@ -312,11 +331,12 @@ def psi_particular(t, n):
     # It yields this expression where t is mixed in the integral.
     alfa = alfas[n]
 
-    step = 1
+    step = 0.5
     points = np.append(np.arange(0, t, step), [ t ])
     y = 0
 
-    f = lambda s: fourier_morisson(s,n)*sin(alfa*(t-s))
+    f = lambda s: (B_iner*mf_iner[n]*sin(sigma*t) + \
+                   B_drag*mf_drag[n]*cos(sigma*t) * abs(cos(sigma*t)))*sin(alfa*(t-s))
     for i in range(len(points)-1):
         a = points[i]
         b = points[i+1]
@@ -324,7 +344,7 @@ def psi_particular(t, n):
     return y
 
 def plot_psi(n):
-    pts = 100
+    pts = 500
     tlist = np.linspace(0, 30, pts)
     ylist = p_map(lambda t: psi_particular(t,n), tlist)
     plt.plot(tlist, ylist, label="psi %d" % n)
@@ -395,25 +415,27 @@ def plot_time_test(n):
 # the final deviation u(x,t).
 #################################################################################
 
-def deflection(x, t, n):
-    y = 0
-    for i in range(n):
-        y += time_coeff(t, i) * phi_eigenfunc(x, i)
-    return y
+def deflection(x, t):
+    tvec = compute_time_vec(t)
+    xvec = compute_space_vec(x)
+    return np.inner(tvec, xvec)
 
-# Convenience methods.
-def plot_deflection_2d(t, pts):
-    xlist = np.linspace(0, L, pts)
-    ylist = p_map(lambda x: deflection(x,t,motes), xlist, num_cpus=cpu_count)
-    plt.figure()
-    plt.title("Deflection u(x,t) at time t=%3.1f in space." % t)
-    plt.xlabel("x (meters)")
-    plt.ylabel("u (meters)")
-    plt.plot(xlist, ylist)
+def compute_time_vec(t):
+    v = np.zeros(motes)
+    for i in range(motes):
+        v[i] = time_coeff(t, i)
+    return v
+
+def compute_space_vec(x):
+    v = np.zeros(motes)
+    for i in range(motes):
+        v[i] = phi_eigenfunc(x, i)
+    return v
 
 def plot_deflection_point_2d(x, tstart, tend, pts):
+    xvec = compute_space_vec(x)
     tlist = np.linspace(tstart, tend, pts)
-    ylist = p_map(lambda t: deflection(x,t,motes), tlist, num_cpus=cpu_count)
+    ylist = p_map(lambda t: np.inner(compute_time_vec(t), xvec), tlist, num_cpus=cpu_count)
     plt.figure()
     plt.ylim(-15, 15)
     plt.title("Deflection u(x,t) at x=L in time.")
@@ -424,20 +446,26 @@ def plot_deflection_point_2d(x, tstart, tend, pts):
 def compute_deflection_3d(tstart, tend, x_pts, t_pts):
     tlist = np.linspace(tstart, tend, t_pts)
     xlist = np.linspace(0, L, x_pts)
+
+    xvecs = list(map(lambda x: compute_space_vec(x), xlist))
+    tvecs = list(p_map(lambda t: compute_time_vec(t), tlist,num_cpus=cpu_count))
+
     X, T = np.meshgrid(xlist, tlist)
 
     Z = np.zeros((t_pts, x_pts))
     Z = np.array(p_map(
-        lambda t: list(map(lambda x: deflection(x, t, motes),xlist)),
-        tlist, num_cpus=cpu_count))
+        lambda ti: list(map(lambda xi: np.inner(xvecs[xi], tvecs[ti]), range(x_pts))),
+        range(t_pts), num_cpus=cpu_count))
     return { "X": xlist, "T": tlist, "Z": Z }
 
 def plot_deflection_3d_data(data):
     X, T = np.meshgrid(data["X"], data["T"])
     plt.figure()
     ax = plt.axes(projection="3d")
-    ax.set_zlim(-10, 10)
-    ax.plot_surface(X, T, data["Z"], cmap="viridis", rstride=1, cstride=1)
+    bd = 1
+    ax.set_zlim(-bd, bd)
+    ax.plot_surface(X, T, data["Z"], cmap="viridis", rstride=1, cstride=1,
+                    vmin=-bd, vmax=bd)
     ax.set_title("Deflection u(x,t) in space and time.")
     ax.set_xlabel('x (meters)')
     ax.set_ylabel('t (seconds)')
@@ -468,4 +496,5 @@ def compute_all():
     global fourier_vel
     fourier_defl = fourier_coeffs_arr(ic_deflection, motes)
     fourier_vel  = fourier_coeffs_arr(ic_velocity, motes)
+    compute_mfracts()
     compute_constants_ab()

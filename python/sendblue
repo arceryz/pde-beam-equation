@@ -3,6 +3,7 @@
 if [ "$1" = "push" ]; then
 	echo "Sending pde script to Delftblue..."
 	rsync -P script.py delftblue:/home/timothyvanderv/pde-beam
+	rsync -P beam.py delftblue:/home/timothyvanderv/pde-beam
 	echo "Done"
 fi
 
