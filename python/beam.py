@@ -15,20 +15,20 @@ import os
 #################################################################################
 
 # Beam settings.
-L = 150
-H = 50
-E = 200*1e+9
+L = 130
+H = 40
+E = 210*1e+9
 R1 = 2.2
 R2 = 2.25
-rho_steel = 5487
+rho_steel = 7850
 
 # Morisson settings.
 Ca = 0.33496
-Cd = 1.17
+Cd = 1.1
 
 # Wave settings.
 rho_sea = 1030
-wave_period = 5.7
+wave_period = 5.0
 wave_amp = 1.5
 wave_length = 33.8
 
@@ -61,7 +61,7 @@ B_drag = A_drag * A_wave**2
 # Tools.
 #################################################################################
 
-def diff(f, x, dx):
+def diff(f, x):
     return (f(x) + f(x+dx))/dx
 
 def integral_lowp(f, a, b):
@@ -127,10 +127,10 @@ def wave_acc(x, t):
 def morisson(x, t):
     if x > H:
         return 0
-#    v = wave_vel(x,t)
-#    y = A_iner*wave_acc(x,t) + A_drag *v*abs(v)
-    y = B_iner * sin(sigma*t)*cosh(k*x)/S + \
-        B_drag*cos(sigma*t)*abs(cos(sigma*t))*(cosh(k*x)/S)**2
+    v = wave_vel(x,t)
+    y = A_iner*wave_acc(x,t) + A_drag *v*abs(v)
+#    y = B_iner * sin(sigma*t)*cosh(k*x)/S + \
+#        B_drag*cos(sigma*t)*abs(cos(sigma*t))*(cosh(k*x)/S)**2
     return y
 
 def plot_wave_speed_2d(t):
@@ -195,7 +195,7 @@ def compute_evs():
                                   method="brentq").root
         xr = yr/L
         eigenvalues[i] = xr
-        alfas[i] = np.sqrt(xr*E*I / mu)
+        alfas[i] = xr**2 * np.sqrt(E*I / mu)
 
 
 #################################################################################
@@ -225,11 +225,11 @@ def plot_eigenfunc(n):
         ylist[i] = phi_eigenfunc(xlist[i], n)
     plt.plot(xlist, ylist)
 
-def plot_eigenfuncs():
+def plot_eigenfuncs(n):
     plt.figure()
-    for n in range(3):
-        plot_eigenfunc(n)
-    plt.title("First three motes of eigenfunctions.")
+    for i in range(n):
+        plot_eigenfunc(i)
+    plt.title("First %d motes of eigenfunctions." % n)
     plt.xlabel("x")
     plt.ylabel("y")
     plt.xlim(0, L)
@@ -331,22 +331,52 @@ def psi_particular(t, n):
     # It yields this expression where t is mixed in the integral.
     alfa = alfas[n]
 
-    step = 0.5
-    points = np.append(np.arange(0, t, step), [ t ])
-    y = 0
+    #step = 60
+    #points = np.append(np.arange(0, t, step), [ t ])
+    #y = 0
 
-    f = lambda s: (B_iner*mf_iner[n]*sin(sigma*t) + \
-                   B_drag*mf_drag[n]*cos(sigma*t) * abs(cos(sigma*t)))*sin(alfa*(t-s))
-    for i in range(len(points)-1):
-        a = points[i]
-        b = points[i+1]
-        y += 1/alfa*integral_highp(f, points[i], points[i+1])
+    #f = lambda s: (B_iner*mf_iner[n]*sin(sigma*t) + \
+    #               B_drag*mf_drag[n]*cos(sigma*t) * abs(cos(sigma*t)))*sin(alfa*(t-s))
+    f = lambda s: fourier_force(s, n) * sin(alfa*(t-s))
+    y = 1/alfa*integral_highp(f, 0, t)
+#    for i in range(len(points)-1):
+#        a = points[i]
+#        b = points[i+1]
+#        y += 1/alfa*integral_highp(f, points[i], points[i+1])
     return y
 
+def plot_psi_parts(t, n):
+    pts = 100
+    alfa = alfas[n]
+    slist = np.linspace(0, t, pts)
+    ylist = p_map(lambda s: fourier_force(s,n), slist)
+    y2list = p_map(lambda s: sin(alfa*(t-s)), slist)
+    y3list = np.zeros(pts)
+    for i in range(pts):
+        y3list[i] = ylist[i]*y2list[i]/alfa
+
+    f = lambda s: fourier_force(s, n) * sin(alfa*(t-s))
+    y4list = p_map(lambda s: 1/alfa*integral_highp(f, 0, s), slist)
+
+    plt.xlabel("s")
+    plt.ylabel("y")
+    plt.title("Psi parts for t=%3.2f, alfa=%3.2f" % (t, alfa)) 
+    plt.plot(slist, ylist, label="Fourier force")
+    plt.plot(slist, y2list, label="Sin(alfa(t-s))")
+    plt.plot(slist, y3list, label="Integrand/alfa")
+    plt.plot(slist, y4list, label="Integral until s")
+    plt.axhline(y=0.0, color='b')
+    plt.legend()
+
 def plot_psi(n):
-    pts = 500
-    tlist = np.linspace(0, 30, pts)
+    pts = 200
+    tlist = np.linspace(0, 60, pts)
     ylist = p_map(lambda t: psi_particular(t,n), tlist)
+
+    maxy = max(ylist)
+    maxindex = ylist.index(maxy)
+    maxt = tlist[maxindex]
+    print("Psi %d max value y=%.2f at t=%.2f" % (n, maxy, maxt))
     plt.plot(tlist, ylist, label="psi %d" % n)
 
 def plot_psi_test(n):
@@ -373,20 +403,19 @@ blist = np.zeros(motes)
 def compute_constants_ab():
     for i in range(motes):
         alist[i] = fourier_defl[i] + psi_particular(0, i)
-        diff0 = diff(lambda z: psi_particular(z, i), 0, dx)
+        diff0 = diff(lambda z: psi_particular(z, i), 0)
         blist[i] = (fourier_vel[i] - diff0) / alfas[i]
 
 def time_coeff(t, n):
     alfa = alfas[n]
     y = alist[n]*cos(alfa*t) + blist[n]*sin(alfa*t) + psi_particular(t, n)
+#    y = psi_particular(t, n)
     return y
 
 def plot_time(n):
-    pts = 100
-    tlist = np.linspace(0, 50, pts)
-    ylist = np.zeros(pts)
-    for i in range(pts):
-        ylist[i] = time_coeff(tlist[i], n)
+    pts = 200
+    tlist = np.linspace(0, 30, pts)
+    ylist = p_map(lambda t: time_coeff(t,n), tlist, num_cpus=cpu_count)
     plt.plot(tlist, ylist, label="b%d(t)" % n)
 
 def plot_time_constants():
@@ -403,6 +432,7 @@ def plot_time_test(n):
     plt.figure()
     for i in range(n):
         plot_time(i)
+    plt.legend()
     plt.title("First %d time solutions bn." % n)
     plt.xlabel("t")
     plt.ylabel("y")
@@ -462,7 +492,7 @@ def plot_deflection_3d_data(data):
     X, T = np.meshgrid(data["X"], data["T"])
     plt.figure()
     ax = plt.axes(projection="3d")
-    bd = 1
+    bd = 15
     ax.set_zlim(-bd, bd)
     ax.plot_surface(X, T, data["Z"], cmap="viridis", rstride=1, cstride=1,
                     vmin=-bd, vmax=bd)
@@ -488,7 +518,6 @@ def plot_deflection_heatmap(data, interp="spline36"):
                extent=extents,
                interpolation=interp)
     plt.colorbar(label="Deflection (meters)")
-
 
 def compute_all():
     compute_evs()
