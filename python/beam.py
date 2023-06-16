@@ -15,14 +15,14 @@ import os
 #################################################################################
 
 # Beam settings.
-L = 130
-H = 40
+L = 150
+H = 50
 E = 210*1e+9
 R1 = 2.2
 R2 = 2.25
 rho_steel = 7850
 
-# Morisson settings.
+# Morison settings.
 Ca = 0.33496
 Cd = 1.1
 
@@ -37,6 +37,7 @@ motes = 5
 quad_lowp = 20
 dx = 1e-6
 cpu_count = 4
+defl_norm = 10
 
 
 #################################################################################
@@ -46,15 +47,10 @@ cpu_count = 4
 I = pi / 4 * (R2**4 - R1**4)
 sigma = 2*pi/wave_period
 k = 2*pi/wave_length
-V = pi*(R2**2 - R1**2)
-mu = rho_steel * V
-
-S = sinh(k*H)
-A_wave = sigma * wave_amp
-A_iner = rho_sea * (1+ Ca) * V
-A_drag = 0.5 * rho_sea * Cd * V
-B_iner = -A_iner * A_wave * sigma
-B_drag = A_drag * A_wave**2
+Volume = pi*R2**2
+Area = pi*(R2**2 - R1**2)
+D = 2*R2
+mu = rho_steel * Area
 
 
 #################################################################################
@@ -68,7 +64,7 @@ def integral_lowp(f, a, b):
     return integrate.fixed_quad(lambda xl: list(map(f, xl)), a, b, n=quad_lowp)[0]
 
 def integral_highp(f, a, b):
-    return integrate.quad(f, a, b)[0]
+    return integrate.quad(f, a, b, limit=100)[0]
 
 # Tools for serializing numpy arrays and likes.
 class NumpyArrayEncoder(json.JSONEncoder):
@@ -99,8 +95,10 @@ def load_json(filename):
 # we analyse it with some plots.
 #################################################################################
 
+forcing_domain = H
+
 def forcing(x, t):
-    return morisson(x, t)
+    return morison(x, t)
 
 def ic_deflection(x):
     return 0
@@ -117,21 +115,44 @@ def ic_velocity(x):
 #################################################################################
 
 def wave_vel(x, t):
-    y = A_wave * cos(sigma*t) * cosh(k*x)/S
+    amp = sigma * wave_amp * cosh(k*x)/sinh(k*H)
+    y = amp * cos(sigma*t)
     return y
 
 def wave_acc(x, t):
-    y = -A_wave*sigma * sin(sigma*t) * cosh(k*x)/S
+    amp = sigma * wave_amp * cosh(k*x)/sinh(k*H)
+    y = -sigma * amp * sin(sigma*t)
     return y
 
-def morisson(x, t):
+def f_iner(x, t):
+    return rho_sea * (1+ Ca) * pi/4 * D**2 * wave_acc(x,t)
+
+def f_drag(x, t):
+    v = wave_vel(x,t)
+    return 0.5 * rho_sea * Cd * D *v*abs(v)
+
+def morison(x, t):
     if x > H:
         return 0
-    v = wave_vel(x,t)
-    y = A_iner*wave_acc(x,t) + A_drag *v*abs(v)
-#    y = B_iner * sin(sigma*t)*cosh(k*x)/S + \
-#        B_drag*cos(sigma*t)*abs(cos(sigma*t))*(cosh(k*x)/S)**2
-    return y
+    return f_iner(x,t) + f_drag(x, t)
+
+def plot_wave_time(tend):
+    pts = 999
+    tlist = np.linspace(0, tend, 999)
+    ylist = np.zeros(pts)
+    ylist2 = np.zeros(pts)
+
+    for i in range(pts):
+        ylist[i] = wave_vel(H, tlist[i])
+        ylist2[i] = wave_acc(H, tlist[i])
+
+    plt.figure()
+    plt.title("Waves at x=H (surface) in time.")
+    plt.xlabel("height from ocean floor (m)")
+    plt.ylabel("speed (m/s)")
+    plt.plot(tlist, ylist, label="Speed")
+    plt.plot(tlist, ylist2, label="Acceleration")
+    plt.legend()
 
 def plot_wave_speed_2d(t):
     pts = 999
@@ -142,29 +163,52 @@ def plot_wave_speed_2d(t):
         ylist[i] = wave_vel(zlist[i], t)
 
     plt.figure()
-    plt.title("Wave speed at time t=%3.1f against H" % t)
+    plt.title("Wave speed at time t=%3.1f against z" % t)
     plt.xlabel("height from ocean floor (m)")
     plt.ylabel("speed (m/s)")
     plt.plot(zlist, ylist)
 
-def plot_morisson_2d(t):
+def plot_morison_2d_time(tend):
+    pts = 999
+    tlist = np.linspace(0, tend, 999)
+    ylist = np.zeros(pts)
+    ylist_iner = np.zeros(pts)
+    ylist_drag = np.zeros(pts)
+
+    for i in range(pts):
+        ylist[i] = morison(H, tlist[i])
+        ylist_iner[i] = f_iner(H, tlist[i])
+        ylist_drag[i] = f_drag(H, tlist[i])
+    plt.figure()
+
+    A = rho_sea * (1+ Ca) * pi/4 * D**2
+    B = 0.5 * rho_sea * Cd * D
+    plt.title("Morison forces Inertia=%.2f, Drag=%.2f" % (A, B))
+    plt.plot(tlist, ylist, label="Morison Force")
+    plt.plot(tlist, ylist_iner, label="Inertia Force")
+    plt.plot(tlist, ylist_drag, label = "Drag Force")
+    plt.ylabel("Force (N)")
+    plt.xlabel("Time t")
+    plt.legend()
+
+def plot_morison_2d(t):
     pts = 999
     zlist = np.linspace(0, L, 999)
     ylist = np.zeros(pts)
 
     for i in range(pts):
-        ylist[i] = morisson(zlist[i], t)
+        ylist[i] = morison(zlist[i], t)
     plt.figure()
     plt.plot(zlist, ylist, label="t=%3.1f" % t)
 
-def plot_morisson_3d(tstart, tend, x_pts, t_pts):
+def plot_morison_3d(tstart, tend, x_pts, t_pts):
     tlist = np.linspace(tstart, tend, t_pts)
-    xlist = np.linspace(0, L, x_pts)
+    xlist = np.linspace(0, H, x_pts)
     X, T = np.meshgrid(xlist, tlist)
 
     Z = np.zeros((t_pts, x_pts))
     Z = np.array(p_map(
-        lambda t: list(map(lambda x: morisson(x, t),xlist)),
+        lambda t: list(map(lambda x: morison(x, t),xlist)),
         tlist, num_cpus=cpu_count))
     plt.figure()
     ax = plt.axes(projection="3d")
@@ -244,39 +288,12 @@ def plot_eigenfuncs_high():
 
 
 #################################################################################
-# Computation of morisson fourier fractions.
-#
-#################################################################################
-
-mf_iner = np.zeros(motes)
-mf_drag = np.zeros(motes)
-
-def morisson_fract_iner(n):
-    y = integral_highp(lambda x: cosh(k*x)/S*phi_eigenfunc(x,n), 0, H)
-    return y
-
-def morisson_fract_drag(n):
-    y = integral_highp(lambda x: (cosh(k*x)/S)**2*phi_eigenfunc(x,n), 0, H)
-    return y
-
-def compute_mfracts():
-    for i in range(motes):
-        mf_iner[i] = morisson_fract_iner(i)
-        mf_drag[i] = morisson_fract_drag(i)
-    pass
-
-
-#################################################################################
 # Fourier coefficients computation.
 #
 # In this section we compute the integrals for fourier coefficients of
 # arbitrary functions. We test this with some sample functions.  
 # Then we store the coefficients we need in lists for later use.
 #################################################################################
-
-def fourier_coeff(f, n) -> float:
-    y = integral_lowp(lambda x: f(x)*phi_eigenfunc(x, n), 0, H) / L
-    return y
 
 def fourier_coeffs_arr(f, n) -> np.array:
     coeffs = np.zeros(n)
@@ -323,26 +340,15 @@ def fourier_force(t, n):
     # This defines the function Fhat(t), the fourier coefficient of the 
     # forcing at a single time t.
     # We have to use a lambda x to make the forcing a function of just x.
-    y = fourier_coeff(lambda x: forcing(x, t), n)
+    y = integral_highp(lambda x: forcing(x,t)*phi_eigenfunc(x, n), 0, H) / L
     return y
 
 def psi_particular(t, n):
     # A much nicer form of the integral is after some clever algebra.
     # It yields this expression where t is mixed in the integral.
     alfa = alfas[n]
-
-    #step = 60
-    #points = np.append(np.arange(0, t, step), [ t ])
-    #y = 0
-
-    #f = lambda s: (B_iner*mf_iner[n]*sin(sigma*t) + \
-    #               B_drag*mf_drag[n]*cos(sigma*t) * abs(cos(sigma*t)))*sin(alfa*(t-s))
     f = lambda s: fourier_force(s, n) * sin(alfa*(t-s))
-    y = 1/alfa*integral_highp(f, 0, t)
-#    for i in range(len(points)-1):
-#        a = points[i]
-#        b = points[i+1]
-#        y += 1/alfa*integral_highp(f, points[i], points[i+1])
+    y = 1/(alfa*mu)*integral_highp(f, 0, t)
     return y
 
 def plot_psi_parts(t, n):
@@ -369,8 +375,8 @@ def plot_psi_parts(t, n):
     plt.legend()
 
 def plot_psi(n):
-    pts = 200
-    tlist = np.linspace(0, 60, pts)
+    pts = 50
+    tlist = np.linspace(0, wave_period*2, pts)
     ylist = p_map(lambda t: psi_particular(t,n), tlist)
 
     maxy = max(ylist)
@@ -409,7 +415,6 @@ def compute_constants_ab():
 def time_coeff(t, n):
     alfa = alfas[n]
     y = alist[n]*cos(alfa*t) + blist[n]*sin(alfa*t) + psi_particular(t, n)
-#    y = psi_particular(t, n)
     return y
 
 def plot_time(n):
@@ -467,7 +472,7 @@ def plot_deflection_point_2d(x, tstart, tend, pts):
     tlist = np.linspace(tstart, tend, pts)
     ylist = p_map(lambda t: np.inner(compute_time_vec(t), xvec), tlist, num_cpus=cpu_count)
     plt.figure()
-    plt.ylim(-15, 15)
+    plt.ylim(-defl_norm, defl_norm)
     plt.title("Deflection u(x,t) at x=L in time.")
     plt.xlabel("t (seconds)")
     plt.ylabel("u (meters)")
@@ -492,10 +497,9 @@ def plot_deflection_3d_data(data):
     X, T = np.meshgrid(data["X"], data["T"])
     plt.figure()
     ax = plt.axes(projection="3d")
-    bd = 15
-    ax.set_zlim(-bd, bd)
+    ax.set_zlim(-defl_norm, defl_norm)
     ax.plot_surface(X, T, data["Z"], cmap="viridis", rstride=1, cstride=1,
-                    vmin=-bd, vmax=bd)
+                    vmin=-defl_norm, vmax=defl_norm)
     ax.set_title("Deflection u(x,t) in space and time.")
     ax.set_xlabel('x (meters)')
     ax.set_ylabel('t (seconds)')
@@ -515,6 +519,7 @@ def plot_deflection_heatmap(data, interp="spline36"):
     plt.imshow(z_trans,
                aspect="auto",
                origin="lower",
+               vmin=-defl_norm, vmax=defl_norm,
                extent=extents,
                interpolation=interp)
     plt.colorbar(label="Deflection (meters)")
@@ -525,5 +530,4 @@ def compute_all():
     global fourier_vel
     fourier_defl = fourier_coeffs_arr(ic_deflection, motes)
     fourier_vel  = fourier_coeffs_arr(ic_velocity, motes)
-    compute_mfracts()
     compute_constants_ab()
