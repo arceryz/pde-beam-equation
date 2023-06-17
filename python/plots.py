@@ -253,9 +253,15 @@ def plot_deflection_heatmap(data, interp="spline36"):
 #
 # Animated deflection plots.
 #
-def update_defl_frame(i, plots, ax, data):
-	ax.set_title("Wind turbine at t=%3.2f" % data["T"][i])
-	plots[0].set_data(data["Z"][i], data["X"])
+def update_defl_frame(i, plots, axes, data):
+	tlist = data["T"]
+	xlist = data["X"]
+	zlist = data["Z"][i]
+	umax = zlist[-1]
+
+	plots[4].set_text("t=%3.2f, u(L,t)=%3.2f" % (tlist[i], umax))
+	plots[3].set_xdata(tlist[i])
+	plots[0].set_data(zlist, xlist)
 	return plots
 
 def anim_deflection(data, speed=1):
@@ -265,10 +271,12 @@ def anim_deflection(data, speed=1):
 	numframes = len(tlist)
 
     # Compute the data needed to plot animation.
-	fig = plt.figure()
-	ax = plt.axes()
+	margin = 20
+	fig, axes = plt.subplots(1, 2)
+	ax = axes[0]
+	ax.set_title("Simulation of windturbine at sea")
 	ax.set_xlim(-0.5*L, 0.5*L)
-	ax.set_ylim(0, L+10)
+	ax.set_ylim(0, L+margin)
 	ax.set_aspect("equal")
     
     # Create the plot object.
@@ -276,12 +284,29 @@ def anim_deflection(data, speed=1):
 	frametime = float(tend - tstart) / numframes * 1000 / speed
 	print(frametime)
 
+	ax2 = axes[1]
+	ax2.set_title("Deflection spectrum")
+	ax2.set_aspect("equal")
+
 	plots = [ 
 		plot, 
-		plt.axhline(H, color="blue", ls="-", label="Water surface"), 
-		plt.axvline(0, color="red", ls="-", label="Center") 
+		ax.axhline(H, color="blue", ls="-", label="Water surface"), 
+		ax.axvline(0, color="red", ls="-", label="Center"),
+		ax2.axvline(0, color="red"),
+		ax.text(-0.5*L+5, L+margin-5, "Hello", ha="left", va="center", color="black", fontsize=20)
 	]
-	ufunc = partial(update_defl_frame, plots=plots, ax=ax, data=data)
-	ani = FuncAnimation(fig, ufunc, frames=range(numframes), blit=False, interval=frametime)
-	plt.legend()
-	plt.show()
+	ufunc = partial(update_defl_frame, plots=plots, axes=axes, data=data)
+	ani = FuncAnimation(fig, ufunc, frames=range(numframes), blit=True, interval=frametime)
+
+	z_trans = np.transpose(data["Z"])
+	extents = (min(data["T"]), max(data["T"]), 0, L)
+	
+	im = ax2.imshow(z_trans,
+			aspect="auto",
+			origin="lower",
+			vmin=-defl_norm, vmax=defl_norm,
+			extent=extents,
+			interpolation="spline36")
+	plt.colorbar(im, label="Deflection (meters)")
+
+	return ani

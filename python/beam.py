@@ -22,7 +22,7 @@ rho_steel = 7850
 #
 # Morison settings.
 #
-morison_enabled = True
+morison_enabled = False
 Ca = 0.33496
 Cd = 1.1
 rho_sea = 1030
@@ -55,7 +55,7 @@ earthquakes = [
 # Constant forcing. This the constant external forcing term.
 # For testing with the analytical model.
 #
-F_constant = 0
+F_constant = 10000
 
 
 

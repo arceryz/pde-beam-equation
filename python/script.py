@@ -18,7 +18,8 @@ if __name__ == "__main__":
 
     # Animations.
     data = load_json("data/resonance_period_5_60.json")
-    anim_deflection(data, 10)
+    #data = compute_deflection_3d(0, 60, 100, 100)
+    ani = anim_deflection(data, 10)
 
     # Overview plot.
     #data = compute_deflection_3d(0, 60, 100, 100)
@@ -38,4 +39,4 @@ if __name__ == "__main__":
     # ***Delftblue compute jobs***
     # Only run this on delftblue since your computer will go brr.
     #save_json("data/3d_hires.json", compute_deflection_3d(0, 600, 50, 200))
-    #plt.show()
+    plt.show()
