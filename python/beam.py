@@ -1,20 +1,15 @@
 import scipy
 import scipy.optimize as optimize
 import scipy.integrate as integrate
-from scipy import pi
 import numpy as np
-from numpy import cos, sin, cosh, sinh, exp, abs
-import matplotlib.pyplot as plt
-from p_tqdm import p_map
-import json
 import os
+from numpy import cos, sin, cosh, sinh, exp, abs, pi
+from p_tqdm import p_map
 
 
-#################################################################################
-# Constants.
-#################################################################################
-
+#
 # Beam settings.
+#
 L = 150
 H = 50
 E = 210*1e+9
@@ -22,28 +17,64 @@ R1 = 2.2
 R2 = 2.25
 rho_steel = 7850
 
+
+
+#
 # Morison settings.
+#
+morison_enabled = True
 Ca = 0.33496
 Cd = 1.1
-
-# Wave settings.
 rho_sea = 1030
-wave_period = 5.0
-wave_amp = 1.5
-wave_length = 33.8
+scenario = "rough"
 
+
+
+#
+# Sea scenarios. Put here the various types of seas we want to test in our
+# model. The syntax is "sea_name": (period, amplitude, wavelength). 
+# All units in seconds or meters.
+#
+sea_scenarios = {
+    "rough": (5.0, 1.5, 33.8)
+}
+
+
+
+#
+# Earthquake settings. 
+# The earthquakes are provided in a list specifying (Amplitude, Hz).
+# Multiple earthquakes can be computed for no additional cost!
+#
+earthquakes = [
+#    (1, 1),
+]
+
+
+#
+# Constant forcing. This the constant external forcing term.
+# For testing with the analytical model.
+#
+F_constant = 0
+
+
+
+#
 # Numerical settings.
-motes = 5
+# Setting then number of motes higher is expensive.
+#
+motes = 10
 quad_lowp = 20
 dx = 1e-6
 cpu_count = 4
 defl_norm = 10
 
 
-#################################################################################
-# Dependent variables.
-#################################################################################
 
+#
+# These variables dependent on the above and should not be modified.
+#
+wave_period, wave_amp, wave_length = sea_scenarios[scenario]
 I = pi / 4 * (R2**4 - R1**4)
 sigma = 2*pi/wave_period
 k = 2*pi/wave_length
@@ -53,67 +84,26 @@ D = 2*R2
 mu = rho_steel * Area
 
 
-#################################################################################
-# Tools.
-#################################################################################
 
+#
+# The following are some utility methods.
+# Integration and differentiation.
+#
 def diff(f, x):
     return (f(x) + f(x+dx))/dx
 
-def integral_lowp(f, a, b):
-    return integrate.fixed_quad(lambda xl: list(map(f, xl)), a, b, n=quad_lowp)[0]
-
-def integral_highp(f, a, b):
+def integral(f, a, b):
     return integrate.quad(f, a, b, limit=100)[0]
 
-# Tools for serializing numpy arrays and likes.
-class NumpyArrayEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, np.ndarray):
-            return obj.tolist()
-        return json.JSONEncoder.default(self, obj)
-
-def save_json(filename, obj):
-    fh = open(filename, "w")
-    json.dump(obj, fh, indent=1, cls=NumpyArrayEncoder)
-    fh.close()
-
-def load_json(filename):
-    fh = open(filename, "r")
-    data = json.load(fh)
-    for k in data:
-        if isinstance(data[k], list):
-            data[k] = np.asarray(data[k])
-    fh.close()
-    return data
 
 
-#################################################################################
-# Initital conditions and forcing.
+
 #
-# In this section we define the wave forcing function and 
-# we analyse it with some plots.
-#################################################################################
-
-forcing_domain = H
-
-def forcing(x, t):
-    return morison(x, t)
-
-def ic_deflection(x):
-    return 0
-
-def ic_velocity(x):
-    return 0
-
-
-#################################################################################
 # The wave equation.
 #
 # In this section we define the wave forcing function and 
 # we analyse it with some plots.
-#################################################################################
-
+#
 def wave_vel(x, t):
     amp = sigma * wave_amp * cosh(k*x)/sinh(k*H)
     y = amp * cos(sigma*t)
@@ -136,93 +126,27 @@ def morison(x, t):
         return 0
     return f_iner(x,t) + f_drag(x, t)
 
-def plot_wave_time(tend):
-    pts = 999
-    tlist = np.linspace(0, tend, 999)
-    ylist = np.zeros(pts)
-    ylist2 = np.zeros(pts)
-
-    for i in range(pts):
-        ylist[i] = wave_vel(H, tlist[i])
-        ylist2[i] = wave_acc(H, tlist[i])
-
-    plt.figure()
-    plt.title("Waves at x=H (surface) in time.")
-    plt.xlabel("height from ocean floor (m)")
-    plt.ylabel("speed (m/s)")
-    plt.plot(tlist, ylist, label="Speed")
-    plt.plot(tlist, ylist2, label="Acceleration")
-    plt.legend()
-
-def plot_wave_speed_2d(t):
-    pts = 999
-    zlist = np.linspace(0, H, 999)
-    ylist = np.zeros(pts)
-
-    for i in range(pts):
-        ylist[i] = wave_vel(zlist[i], t)
-
-    plt.figure()
-    plt.title("Wave speed at time t=%3.1f against z" % t)
-    plt.xlabel("height from ocean floor (m)")
-    plt.ylabel("speed (m/s)")
-    plt.plot(zlist, ylist)
-
-def plot_morison_2d_time(tend):
-    pts = 999
-    tlist = np.linspace(0, tend, 999)
-    ylist = np.zeros(pts)
-    ylist_iner = np.zeros(pts)
-    ylist_drag = np.zeros(pts)
-
-    for i in range(pts):
-        ylist[i] = morison(H, tlist[i])
-        ylist_iner[i] = f_iner(H, tlist[i])
-        ylist_drag[i] = f_drag(H, tlist[i])
-    plt.figure()
-
-    A = rho_sea * (1+ Ca) * pi/4 * D**2
-    B = 0.5 * rho_sea * Cd * D
-    plt.title("Morison forces Inertia=%.2f, Drag=%.2f" % (A, B))
-    plt.plot(tlist, ylist, label="Morison Force")
-    plt.plot(tlist, ylist_iner, label="Inertia Force")
-    plt.plot(tlist, ylist_drag, label = "Drag Force")
-    plt.ylabel("Force (N)")
-    plt.xlabel("Time t")
-    plt.legend()
-
-def plot_morison_2d(t):
-    pts = 999
-    zlist = np.linspace(0, L, 999)
-    ylist = np.zeros(pts)
-
-    for i in range(pts):
-        ylist[i] = morison(zlist[i], t)
-    plt.figure()
-    plt.plot(zlist, ylist, label="t=%3.1f" % t)
-
-def plot_morison_3d(tstart, tend, x_pts, t_pts):
-    tlist = np.linspace(tstart, tend, t_pts)
-    xlist = np.linspace(0, H, x_pts)
-    X, T = np.meshgrid(xlist, tlist)
-
-    Z = np.zeros((t_pts, x_pts))
-    Z = np.array(p_map(
-        lambda t: list(map(lambda x: morison(x, t),xlist)),
-        tlist, num_cpus=cpu_count))
-    plt.figure()
-    ax = plt.axes(projection="3d")
-    ax.plot_surface(X, T, Z, cmap="viridis", rstride=1, cstride=1)
-    ax.set_title("Morrison m(x,t) in space and time.")
-    ax.set_xlabel('x (meters)')
-    ax.set_ylabel('t (seconds)')
-    ax.set_zlabel('force (newton)');
 
 
-#################################################################################
+
+#
+# The earthquake.
+# This is the summed earthquake influence.
+# The derivatives of the earthquake are already inserted in the 
+# equations and are all optimised.
+# Do not change this without changing the model!
+#
+def a_earthquake(t):
+    y = 0
+    for E_amp, E_freq in earthquakes:
+        y += E_amp * cos(E_freq * 2*pi * t)
+    return y
+
+
+
+#
 # Computing the eigenvalues.
-#################################################################################
-
+#
 eigenvalues = np.zeros(motes)
 alfas = np.zeros(motes)
 
@@ -242,18 +166,10 @@ def compute_evs():
         alfas[i] = xr**2 * np.sqrt(E*I / mu)
 
 
-#################################################################################
-# Computing the eigenfunctions.
-#################################################################################
 
-def phi_eigenfunc_bad(x, n):
-    # Numerically WORSE variant.
-    ev = eigenvalues[n]
-    c = (cosh(ev*L) + cos(ev*L)) / \
-        (sinh(ev*L) + sin(ev*L))
-    y = cosh(ev*x) - cos(ev*x) - c * (sinh(ev*x) - sin(ev*x))
-    return y
-
+#
+# The eigenfunctions and betas.
+#
 def phi_eigenfunc(x, n):
     ev = eigenvalues[n]
     c = (cosh(ev*L) + cos(ev*L)) / \
@@ -261,200 +177,67 @@ def phi_eigenfunc(x, n):
     y = ((1-c)*exp(ev*x) + (1+c)*exp(-ev*x))/2.0 + c*sin(ev*x) - cos(ev*x)
     return y
 
-def plot_eigenfunc(n):
-    pts = 999
-    xlist = np.linspace(0, L, pts)
-    ylist = np.zeros(pts)
-    for i in range(pts):
-        ylist[i] = phi_eigenfunc(xlist[i], n)
-    plt.plot(xlist, ylist)
+betas = np.zeros(motes)
 
-def plot_eigenfuncs(n):
-    plt.figure()
-    for i in range(n):
-        plot_eigenfunc(i)
-    plt.title("First %d motes of eigenfunctions." % n)
-    plt.xlabel("x")
-    plt.ylabel("y")
-    plt.xlim(0, L)
-
-def plot_eigenfuncs_high():
-    plt.figure()
-    plot_eigenfunc(motes-1)
-    plt.title("Highest mote (%d) of eigenfunctions." % (motes-1))
-    plt.xlabel("x")
-    plt.ylabel("y")
-    plt.xlim(0, L)
-
-
-#################################################################################
-# Fourier coefficients computation.
-#
-# In this section we compute the integrals for fourier coefficients of
-# arbitrary functions. We test this with some sample functions.  
-# Then we store the coefficients we need in lists for later use.
-#################################################################################
-
-def fourier_coeffs_arr(f, n) -> np.array:
-    coeffs = np.zeros(n)
-    for i in range(n):
-        coeffs[i] = integral_highp(lambda x: f(x)*phi_eigenfunc(x, i), 0, L) / L
-    return coeffs
-
-def fourier_eval(x, coeffs) -> float:
-    y = 0 
-    for i in range(len(coeffs)):
-        y += coeffs[i] * phi_eigenfunc(x, i)
+def beta(n):
+    y = integral(lambda x: phi_eigenfunc(x, n), 0, L) / L
     return y
 
-def plot_fourier_series(testfun):
-    pts = 999
-    xlist = np.linspace(0, L, pts)
-    ylist = np.zeros(pts)
-    ylist2 = np.zeros(pts)
-
-    coeffs = fourier_coeffs_arr(testfun, motes)
-    for i in range(pts):
-        ylist[i] = fourier_eval(xlist[i], coeffs)
-        ylist2[i] = testfun(xlist[i])
-    plt.figure()
-    plt.plot(xlist, ylist)
-    plt.plot(xlist, ylist2)
-    plt.title("Eigenfunction expansion of function.")
-    plt.xlabel("x")
-    plt.ylabel("y")
-
-fourier_defl = []
-fourier_vel  = []
-
-
-#################################################################################
-# Time 1: Particular solution computation.
-#
-# This section computes the particular solution for the time coefficients.
-# This is a function obtained by variation of parameters.
-# By far the most complicated thing to solve for.
-#################################################################################
-
-def fourier_force(t, n):
-    # This defines the function Fhat(t), the fourier coefficient of the 
-    # forcing at a single time t.
-    # We have to use a lambda x to make the forcing a function of just x.
-    y = integral_highp(lambda x: forcing(x,t)*phi_eigenfunc(x, n), 0, H) / L
-    return y
-
-def psi_particular(t, n):
-    # A much nicer form of the integral is after some clever algebra.
-    # It yields this expression where t is mixed in the integral.
-    alfa = alfas[n]
-    f = lambda s: fourier_force(s, n) * sin(alfa*(t-s))
-    y = 1/(alfa*mu)*integral_highp(f, 0, t)
-    return y
-
-def plot_psi_parts(t, n):
-    pts = 100
-    alfa = alfas[n]
-    slist = np.linspace(0, t, pts)
-    ylist = p_map(lambda s: fourier_force(s,n), slist)
-    y2list = p_map(lambda s: sin(alfa*(t-s)), slist)
-    y3list = np.zeros(pts)
-    for i in range(pts):
-        y3list[i] = ylist[i]*y2list[i]/alfa
-
-    f = lambda s: fourier_force(s, n) * sin(alfa*(t-s))
-    y4list = p_map(lambda s: 1/alfa*integral_highp(f, 0, s), slist)
-
-    plt.xlabel("s")
-    plt.ylabel("y")
-    plt.title("Psi parts for t=%3.2f, alfa=%3.2f" % (t, alfa)) 
-    plt.plot(slist, ylist, label="Fourier force")
-    plt.plot(slist, y2list, label="Sin(alfa(t-s))")
-    plt.plot(slist, y3list, label="Integrand/alfa")
-    plt.plot(slist, y4list, label="Integral until s")
-    plt.axhline(y=0.0, color='b')
-    plt.legend()
-
-def plot_psi(n):
-    pts = 50
-    tlist = np.linspace(0, wave_period*2, pts)
-    ylist = p_map(lambda t: psi_particular(t,n), tlist)
-
-    maxy = max(ylist)
-    maxindex = ylist.index(maxy)
-    maxt = tlist[maxindex]
-    print("Psi %d max value y=%.2f at t=%.2f" % (n, maxy, maxt))
-    plt.plot(tlist, ylist, label="psi %d" % n)
-
-def plot_psi_test(n):
-    plt.figure()
-    for i in range(n):
-        plot_psi(i)
-    plt.legend()
-    plt.xlabel("t")
-    plt.ylabel("y")
-    plt.title("First %d psi_n particular solutions." % n)
-
-
-#################################################################################
-# Time 2: Time coefficients computation.
-#
-# We now need to find the time coefficients bn. 
-# Part of that requires us to take some derivatives and find the 
-# constants An and Bn for the homogenous functions.
-#################################################################################
-
-alist = np.zeros(motes)
-blist = np.zeros(motes)
-
-def compute_constants_ab():
+def compute_betas():
     for i in range(motes):
-        alist[i] = fourier_defl[i] + psi_particular(0, i)
-        diff0 = diff(lambda z: psi_particular(z, i), 0)
-        blist[i] = (fourier_vel[i] - diff0) / alfas[i]
+        betas[i] = beta(i)
+
+
+
+#
+# The time coefficients.
+# We neglect the initial conditions as zero to simplify bn.
+#
+def morison_eigencoeff(t, n):
+    y = integral(lambda x: morison(x,t)*phi_eigenfunc(x, n), 0, H) / L
+    return y
+
+#
+# The resonance equation for sines is the integral <cos, sin> over t.
+# For cosines it reduces to this expression.
+# We call this integral in general the "Resonance" integral because it 
+# determines the resonance.
+#
+def resonance_cos(w, a, t):
+    return a * (cos(w*t) - cos(a*t)) / (a**2 - w**2)
 
 def time_coeff(t, n):
     alfa = alfas[n]
-    y = alist[n]*cos(alfa*t) + blist[n]*sin(alfa*t) + psi_particular(t, n)
+    beta = betas[n]
+
+
+    # The morison resonance contribution.
+    y_mor = 0
+    if morison_enabled:
+        f = lambda s: morison_eigencoeff(s, n) * sin(alfa*(t-s))
+        y_mor = integral(f, 0, t)
+
+    # The earthquake resonance contribution.
+    # If there are no earthquakes then y_eq remains zero and 
+    # we are just left with 1/(alfa*mu) * y_mor.
+    # This is the same as the previous case basically.
+    y_eq = 0
+    for E_amp, E_freq in earthquakes:
+        freq = E_freq * 2*pi
+        y_eq += E_amp * freq**2 * resonance_cos(freq, alfa, t)
+    y_eq *= mu * beta
+
+    y_const = beta * F_constant * resonance_cos(0, alfa, t)
+
+    y = 1/(alfa*mu) * (y_mor + y_const + y_eq)
     return y
 
-def plot_time(n):
-    pts = 200
-    tlist = np.linspace(0, 30, pts)
-    ylist = p_map(lambda t: time_coeff(t,n), tlist, num_cpus=cpu_count)
-    plt.plot(tlist, ylist, label="b%d(t)" % n)
 
-def plot_time_constants():
-    xlist = range(motes)
-    plt.figure()
-    plt.plot(xlist, alist, label="A coeff")
-    plt.plot(xlist, blist, label="B coeff")
-    plt.title("Time constants An and Bn")
-    plt.xlabel("n")
-    plt.ylabel("y")
-    plt.legend()
-
-def plot_time_test(n):
-    plt.figure()
-    for i in range(n):
-        plot_time(i)
-    plt.legend()
-    plt.title("First %d time solutions bn." % n)
-    plt.xlabel("t")
-    plt.ylabel("y")
-
-
-#################################################################################
-# Final solution.
 #
-# Having found all the components we turn our attention to plotting 
-# the final deviation u(x,t).
-#################################################################################
-
-def deflection(x, t):
-    tvec = compute_time_vec(t)
-    xvec = compute_space_vec(x)
-    return np.inner(tvec, xvec)
-
+# Deflection computation. 
+# Here we include the methods to compute the final deflection in 
+# optimized way.
+#
 def compute_time_vec(t):
     v = np.zeros(motes)
     for i in range(motes):
@@ -467,67 +250,22 @@ def compute_space_vec(x):
         v[i] = phi_eigenfunc(x, i)
     return v
 
-def plot_deflection_point_2d(x, tstart, tend, pts):
-    xvec = compute_space_vec(x)
-    tlist = np.linspace(tstart, tend, pts)
-    ylist = p_map(lambda t: np.inner(compute_time_vec(t), xvec), tlist, num_cpus=cpu_count)
-    plt.figure()
-    plt.ylim(-defl_norm, defl_norm)
-    plt.title("Deflection u(x,t) at x=L in time.")
-    plt.xlabel("t (seconds)")
-    plt.ylabel("u (meters)")
-    plt.plot(tlist, ylist)
+def deflection(xrange, trange):
+    # Compute all spatial vectors and time vectors in the domain.
+    print("Computing xvecs tvecs")
+    xvecs = list(map(lambda x: compute_space_vec(x), xrange))
+    tvecs = list(p_map(lambda t: compute_time_vec(t), trange, 
+                       num_cpus=cpu_count))
 
-def compute_deflection_3d(tstart, tend, x_pts, t_pts):
-    tlist = np.linspace(tstart, tend, t_pts)
-    xlist = np.linspace(0, L, x_pts)
+    # Compute all earthquake influences.
+    print("Computing earthquakes")
+    ae_list = list(map(lambda t: a_earthquake(t), trange))
 
-    xvecs = list(map(lambda x: compute_space_vec(x), xlist))
-    tvecs = list(p_map(lambda t: compute_time_vec(t), tlist,num_cpus=cpu_count))
-
-    X, T = np.meshgrid(xlist, tlist)
-
-    Z = np.zeros((t_pts, x_pts))
-    Z = np.array(p_map(
-        lambda ti: list(map(lambda xi: np.inner(xvecs[xi], tvecs[ti]), range(x_pts))),
-        range(t_pts), num_cpus=cpu_count))
-    return { "X": xlist, "T": tlist, "Z": Z }
-
-def plot_deflection_3d_data(data):
-    X, T = np.meshgrid(data["X"], data["T"])
-    plt.figure()
-    ax = plt.axes(projection="3d")
-    ax.set_zlim(-defl_norm, defl_norm)
-    ax.plot_surface(X, T, data["Z"], cmap="viridis", rstride=1, cstride=1,
-                    vmin=-defl_norm, vmax=defl_norm)
-    ax.set_title("Deflection u(x,t) in space and time.")
-    ax.set_xlabel('x (meters)')
-    ax.set_ylabel('t (seconds)')
-    ax.set_zlabel('u (meters)');
-
-def plot_deflection_3d(tstart, tend, x_pts, t_pts):
-    data = compute_deflection_3d(tstart, tend, x_pts, t_pts)
-    plot_deflection_3d_data(data)
-
-def plot_deflection_heatmap(data, interp="spline36"):
-    plt.figure()
-    plt.title("Heatmap of deflection u(x,t) in space and time")
-    plt.xlabel("t (seconds)")
-    plt.ylabel("x (meters)")
-    z_trans = np.transpose(data["Z"])
-    extents = (min(data["T"]), max(data["T"]), 0, L)
-    plt.imshow(z_trans,
-               aspect="auto",
-               origin="lower",
-               vmin=-defl_norm, vmax=defl_norm,
-               extent=extents,
-               interpolation=interp)
-    plt.colorbar(label="Deflection (meters)")
-
-def compute_all():
-    compute_evs()
-    global fourier_defl
-    global fourier_vel
-    fourier_defl = fourier_coeffs_arr(ic_deflection, motes)
-    fourier_vel  = fourier_coeffs_arr(ic_velocity, motes)
-    compute_constants_ab()
+    # Now compute the real u to get the result.
+    print("Computing inner products")
+    Z = np.array(list(map(
+        lambda ti: list(map(
+            lambda xi: np.inner(xvecs[xi], tvecs[ti]) + ae_list[ti], 
+            range(len(xrange)))),
+        range(len(trange)))))
+    return Z
