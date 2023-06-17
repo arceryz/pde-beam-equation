@@ -277,6 +277,8 @@ def anim_deflection(data, speed=1):
 	ax.set_title("Simulation of windturbine at sea")
 	ax.set_xlim(-0.5*L, 0.5*L)
 	ax.set_ylim(0, L+margin)
+	ax.set_xlabel("deflection (m)")
+	ax.set_ylabel("height (m)")
 	ax.set_aspect("equal")
     
     # Create the plot object.
@@ -286,6 +288,8 @@ def anim_deflection(data, speed=1):
 
 	ax2 = axes[1]
 	ax2.set_title("Deflection spectrum")
+	ax2.set_xlabel("time (s)")
+	ax2.set_ylabel("height (m)")
 	ax2.set_aspect("equal")
 
 	plots = [ 
@@ -293,7 +297,7 @@ def anim_deflection(data, speed=1):
 		ax.axhline(H, color="blue", ls="-", label="Water surface"), 
 		ax.axvline(0, color="red", ls="-", label="Center"),
 		ax2.axvline(0, color="red"),
-		ax.text(-0.5*L+5, L+margin-5, "Hello", ha="left", va="center", color="black", fontsize=20)
+		ax.text(-0.5*L+5, L+margin-5, "Hello", ha="left", va="center", color="black", fontsize=15)
 	]
 	ufunc = partial(update_defl_frame, plots=plots, axes=axes, data=data)
 	ani = FuncAnimation(fig, ufunc, frames=range(numframes), blit=True, interval=frametime)
