@@ -218,14 +218,16 @@ def compute_deflection_3d(tstart, tend, x_pts, t_pts):
     tlist = np.linspace(tstart, tend, t_pts)
     xlist = np.linspace(0, L, x_pts)
     X, T = np.meshgrid(xlist, tlist)
-    Z, tvecs, xvecs = deflection(xlist, tlist) 
+    Z, tvecs, xvecs, ae_diff, mor = deflection(xlist, tlist) 
 
     out = {
         "X": xlist,
         "T": tlist,
         "Z": Z,
         "tvecs": tvecs,
-        "xvecs": xvecs
+        "xvecs": xvecs,
+        "f_ae": ae_diff,
+        "f_mor": mor
     }
     return out
 
@@ -272,6 +274,7 @@ def update_defl_frame(i, plots, axes, data):
     plots[3].set_xdata(tlist[i])
     plots[0].set_data(zlist, xlist)
     plots[5].set_xdata(tlist[i])
+    plots[6].set_xdata(tlist[i])
     return plots
 
 def anim_deflection(data, speed=1):
@@ -283,6 +286,7 @@ def anim_deflection(data, speed=1):
     # Compute the data needed to plot animation.
     margin = 20
     fig, axes = plt.subplots(2, 2)
+    fig.suptitle("Windmolentje - Visualisation Suite (WVS)")
 
     ax = axes[0][0]
     ax.set_title("Simulation of windturbine at sea")
@@ -311,17 +315,27 @@ def anim_deflection(data, speed=1):
         for i in range(len(tlist)):
             tvecs = data["tvecs"][i]
             ylist[i] = tvecs[k]
-        ax3.plot(tlist, ylist, label="Mote %d" % k)
-    ax3.legend()
-    
+        ax3.plot(tlist, ylist, label="Mote %d" % (k+1))
+    ax3.legend(loc="upper right")
+
+    # Force plot.
+    ax4 = axes[1][1]
+    ax4.plot(tlist, data["f_mor"], label="Morison force")
+    ax4.plot(tlist, data["f_ae"], label="Earthquake force")
+    ax4.set_title("Morison and Earthquake forces in time")
+    ax4.set_xlabel("time (s)")
+    ax4.set_ylabel("Force (N)")
+    ax4.legend(loc="upper right")
+
     plots = [ 
         plot, 
         ax.axhline(H, color="blue", ls="-", label="Water surface"), 
         ax.axvline(0, color="red", ls="-", label="Center"),
         ax2.axvline(0, color="red"),
         ax.text(-0.5*L+5, L+margin-5, "Hello", ha="left", va="center",
-                color="black", fontsize=15),
-        ax3.axvline(0, color="red")
+                color="black", fontsize=10),
+        ax3.axvline(0, color="red"),
+        ax4.axvline(0, color="red"),
     ]
     ufunc = partial(update_defl_frame, plots=plots, axes=axes, data=data)
     ani = FuncAnimation(fig, ufunc, frames=range(numframes), blit=True, interval=frametime)
@@ -334,6 +348,6 @@ def anim_deflection(data, speed=1):
             vmin=-defl_norm, vmax=defl_norm,
             extent=extents,
             interpolation="spline36")
-    plt.colorbar(im, label="Deflection (meters)")
+    plt.colorbar(im, label="Deflection (meters)", ax=ax2)
 
     return ani

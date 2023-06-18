@@ -47,7 +47,7 @@ sea_scenarios = {
 # Multiple earthquakes can be computed for no additional cost!
 #
 earthquakes = [
-#    (1, 1),
+    (1.00, 0.10),
 ]
 
 
@@ -55,7 +55,7 @@ earthquakes = [
 # Constant forcing. This the constant external forcing term.
 # For testing with the analytical model.
 #
-F_constant = 10000
+F_constant = 0
 
 
 
@@ -142,6 +142,12 @@ def a_earthquake(t):
         y += E_amp * cos(E_freq * 2*pi * t)
     return y
 
+def a_earthquake_diff(t):
+    y = 0
+    for E_amp, E_freq in earthquakes:
+        w = E_freq * 2*pi
+        y += -mu * E_amp * w**2 * cos(w * t)
+    return y
 
 
 #
@@ -260,6 +266,10 @@ def deflection(xrange, trange):
     # Compute all earthquake influences.
     print("Computing earthquakes")
     ae_list = list(map(lambda t: a_earthquake(t), trange))
+    print("Computing earthquakes forces")
+    ae_list_diff = list(map(lambda t: a_earthquake_diff(t), trange))
+    print("Computing morison forces")
+    morison_list = list(map(lambda t: morison(H, t), trange))
 
     # Now compute the real u to get the result.
     print("Computing inner products")
@@ -268,4 +278,4 @@ def deflection(xrange, trange):
             lambda xi: np.inner(xvecs[xi], tvecs[ti]) + ae_list[ti], 
             range(len(xrange)))),
         range(len(trange)))))
-    return Z, tvecs, xvecs
+    return Z, tvecs, xvecs, ae_list_diff, morison_list
