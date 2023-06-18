@@ -286,7 +286,8 @@ def anim_deflection(data, speed=1):
     # Compute the data needed to plot animation.
     margin = 20
     fig, axes = plt.subplots(2, 2)
-    fig.suptitle("Windmolentje - Visualisation Suite (WVS)")
+    fig.suptitle("Windmolentje - Visualisation Suite (WVS). Scenario: %s" %
+                 scenario)
 
     ax = axes[0][0]
     ax.set_title("Simulation of windturbine at sea")
