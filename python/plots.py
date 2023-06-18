@@ -1,5 +1,6 @@
 import json
 import matplotlib.pyplot as plt
+import matplotlib.image as image
 import numpy as np
 from matplotlib.animation import FuncAnimation
 from beam import *
@@ -278,6 +279,7 @@ def update_defl_frame(i, plots, axes, data):
     return plots
 
 def anim_deflection(data, speed=1):
+
     tlist = data["T"]
     tstart = min(tlist)
     tend = max(tlist)
@@ -288,6 +290,10 @@ def anim_deflection(data, speed=1):
     fig, axes = plt.subplots(2, 2)
     fig.suptitle("Windmolentje - Visualisation Suite (WVS). Scenario: %s" %
                  scenario)
+    im = image.imread("windmolentje.png")
+    newax = fig.add_axes([0.0,0.9,0.1,0.1], anchor='NW', zorder=1)
+    newax.imshow(im)
+    newax.axis('off')
 
     ax = axes[0][0]
     ax.set_title("Simulation of windturbine at sea")
