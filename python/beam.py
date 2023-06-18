@@ -22,7 +22,7 @@ rho_steel = 7850
 #
 # Morison settings.
 #
-morison_enabled = False
+morison_enabled = True
 Ca = 0.33496
 Cd = 1.1
 rho_sea = 1030

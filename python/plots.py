@@ -288,8 +288,11 @@ def anim_deflection(data, speed=1):
     # Compute the data needed to plot animation.
     margin = 20
     fig, axes = plt.subplots(2, 2)
-    fig.suptitle("Windmolentje - Visualisation Suite (WVS). Scenario: %s" %
-                 scenario)
+
+    umin = data["Z"].min()
+    umax = data["Z"].max()
+    fig.suptitle("Windmolentje. Scenario=\"%s\". Extremes %3.2fm < u < %3.2fm" %
+                 (scenario, umin, umax))
     im = image.imread("windmolentje.png")
     newax = fig.add_axes([0.0,0.9,0.1,0.1], anchor='NW', zorder=1)
     newax.imshow(im)
@@ -327,8 +330,8 @@ def anim_deflection(data, speed=1):
 
     # Force plot.
     ax4 = axes[1][1]
-    ax4.plot(tlist, data["f_mor"], label="Morison force")
-    ax4.plot(tlist, data["f_ae"], label="Earthquake force")
+    ax4.plot(tlist, data["f_mor"], label="Morison force at x=H")
+    ax4.plot(tlist, data["f_ae"], label="Earthquake force per meter")
     ax4.set_title("Morison and Earthquake forces in time")
     ax4.set_xlabel("time (s)")
     ax4.set_ylabel("Force (N)")
@@ -356,5 +359,4 @@ def anim_deflection(data, speed=1):
             extent=extents,
             interpolation="spline36")
     plt.colorbar(im, label="Deflection (meters)", ax=ax2)
-
-    return ani
+    plt.show()

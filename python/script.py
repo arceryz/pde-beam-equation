@@ -10,7 +10,8 @@ if __name__ == "__main__":
     print("Alfas: %s" % str(alfas))
 
     # Animations.
-    #data = load_json("data/resonance_period_5_60.json")
-    data = compute_deflection_3d(0, 60, 100, 500)
-    ani = anim_deflection(data, 10)
-    plt.show()
+    data = load_json("data/rough_with_eq1.json")
+    #data = compute_deflection_3d(0, 30, 100, 100)
+    anim_deflection(data, 10)
+
+    #save_json("data/backup.json", data)
