@@ -215,11 +215,19 @@ def plot_deflection(x, tstart, tend, pts):
 	plt.plot(tlist, ylist)
 
 def compute_deflection_3d(tstart, tend, x_pts, t_pts):
-	tlist = np.linspace(tstart, tend, t_pts)
-	xlist = np.linspace(0, L, x_pts)
-	X, T = np.meshgrid(xlist, tlist)
-	Z = deflection(xlist, tlist)
-	return { "X": xlist, "T": tlist, "Z": Z }
+    tlist = np.linspace(tstart, tend, t_pts)
+    xlist = np.linspace(0, L, x_pts)
+    X, T = np.meshgrid(xlist, tlist)
+    Z, tvecs, xvecs = deflection(xlist, tlist) 
+
+    out = {
+        "X": xlist,
+        "T": tlist,
+        "Z": Z,
+        "tvecs": tvecs,
+        "xvecs": xvecs
+    }
+    return out
 
 def plot_deflection_3d(data):
 	X, T = np.meshgrid(data["X"], data["T"])
@@ -254,63 +262,78 @@ def plot_deflection_heatmap(data, interp="spline36"):
 # Animated deflection plots.
 #
 def update_defl_frame(i, plots, axes, data):
-	tlist = data["T"]
-	xlist = data["X"]
-	zlist = data["Z"][i]
-	umax = zlist[-1]
+    tlist = data["T"]
+    xlist = data["X"]
+    zlist = data["Z"][i]
+    tv = data["tvecs"][i]
+    umax = zlist[-1]
 
-	plots[4].set_text("t=%3.2f, u(L,t)=%3.2f" % (tlist[i], umax))
-	plots[3].set_xdata(tlist[i])
-	plots[0].set_data(zlist, xlist)
-	return plots
+    plots[4].set_text("t=%3.2f, u(L,t)=%3.2f" % (tlist[i], umax))
+    plots[3].set_xdata(tlist[i])
+    plots[0].set_data(zlist, xlist)
+    plots[5].set_xdata(tlist[i])
+    return plots
 
 def anim_deflection(data, speed=1):
-	tlist = data["T"]
-	tstart = min(tlist)
-	tend = max(tlist)
-	numframes = len(tlist)
+    tlist = data["T"]
+    tstart = min(tlist)
+    tend = max(tlist)
+    numframes = len(tlist)
 
     # Compute the data needed to plot animation.
-	margin = 20
-	fig, axes = plt.subplots(1, 2)
-	ax = axes[0]
-	ax.set_title("Simulation of windturbine at sea")
-	ax.set_xlim(-0.5*L, 0.5*L)
-	ax.set_ylim(0, L+margin)
-	ax.set_xlabel("deflection (m)")
-	ax.set_ylabel("height (m)")
-	ax.set_aspect("equal")
-    
+    margin = 20
+    fig, axes = plt.subplots(2, 2)
+
+    ax = axes[0][0]
+    ax.set_title("Simulation of windturbine at sea")
+    ax.set_xlim(-0.5*L, 0.5*L)
+    ax.set_ylim(0, L+margin)
+    ax.set_xlabel("deflection (m)")
+    ax.set_ylabel("height (m)")
+    ax.set_aspect("equal")
+
     # Create the plot object.
-	plot = ax.plot([], [], lw=72.0*R2/10, color="gray", label="Windturbine")[0]
-	frametime = float(tend - tstart) / numframes * 1000 / speed
-	print(frametime)
+    plot = ax.plot([], [], lw=72.0*R2/10, color="gray", label="Windturbine")[0]
+    frametime = float(tend - tstart) / numframes * 1000 / speed
+    print(frametime)
 
-	ax2 = axes[1]
-	ax2.set_title("Deflection spectrum")
-	ax2.set_xlabel("time (s)")
-	ax2.set_ylabel("height (m)")
-	ax2.set_aspect("equal")
+    ax2 = axes[0][1]
+    ax2.set_title("Deflection spectrum")
+    ax2.set_xlabel("time (s)")
+    ax2.set_ylabel("height (m)")
+    ax2.set_aspect("equal")
 
-	plots = [ 
-		plot, 
-		ax.axhline(H, color="blue", ls="-", label="Water surface"), 
-		ax.axvline(0, color="red", ls="-", label="Center"),
-		ax2.axvline(0, color="red"),
-		ax.text(-0.5*L+5, L+margin-5, "Hello", ha="left", va="center", color="black", fontsize=15)
-	]
-	ufunc = partial(update_defl_frame, plots=plots, axes=axes, data=data)
-	ani = FuncAnimation(fig, ufunc, frames=range(numframes), blit=True, interval=frametime)
+    ax3= axes[1][0]
+    ax3.set_title("Excitation of eigenfunction motes")
 
-	z_trans = np.transpose(data["Z"])
-	extents = (min(data["T"]), max(data["T"]), 0, L)
-	
-	im = ax2.imshow(z_trans,
-			aspect="auto",
-			origin="lower",
-			vmin=-defl_norm, vmax=defl_norm,
-			extent=extents,
-			interpolation="spline36")
-	plt.colorbar(im, label="Deflection (meters)")
+    for k in range(motes):
+        ylist = np.zeros(len(tlist))
+        for i in range(len(tlist)):
+            tvecs = data["tvecs"][i]
+            ylist[i] = tvecs[k]
+        ax3.plot(tlist, ylist, label="Mote %d" % k)
+    ax3.legend()
+    
+    plots = [ 
+        plot, 
+        ax.axhline(H, color="blue", ls="-", label="Water surface"), 
+        ax.axvline(0, color="red", ls="-", label="Center"),
+        ax2.axvline(0, color="red"),
+        ax.text(-0.5*L+5, L+margin-5, "Hello", ha="left", va="center",
+                color="black", fontsize=15),
+        ax3.axvline(0, color="red")
+    ]
+    ufunc = partial(update_defl_frame, plots=plots, axes=axes, data=data)
+    ani = FuncAnimation(fig, ufunc, frames=range(numframes), blit=True, interval=frametime)
 
-	return ani
+    z_trans = np.transpose(data["Z"])
+    extents = (min(data["T"]), max(data["T"]), 0, L)
+    im = ax2.imshow(z_trans,
+            aspect="auto",
+            origin="lower",
+            vmin=-defl_norm, vmax=defl_norm,
+            extent=extents,
+            interpolation="spline36")
+    plt.colorbar(im, label="Deflection (meters)")
+
+    return ani

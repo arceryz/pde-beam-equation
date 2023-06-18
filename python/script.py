@@ -17,8 +17,8 @@ if __name__ == "__main__":
     #plot_time_test(1, 30, 999)
 
     # Animations.
-    data = load_json("data/resonance_period_5_60.json")
-    #data = compute_deflection_3d(0, 60, 100, 100)
+    #data = load_json("data/resonance_period_5_60.json")
+    data = compute_deflection_3d(0, 60, 100, 100)
     ani = anim_deflection(data, 10)
 
     # Overview plot.

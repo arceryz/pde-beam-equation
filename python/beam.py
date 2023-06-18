@@ -268,4 +268,4 @@ def deflection(xrange, trange):
             lambda xi: np.inner(xvecs[xi], tvecs[ti]) + ae_list[ti], 
             range(len(xrange)))),
         range(len(trange)))))
-    return Z
+    return Z, tvecs, xvecs
