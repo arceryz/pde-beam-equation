@@ -11,7 +11,7 @@ if __name__ == "__main__":
 
     # Animations.
     #data = load_json("data/VERANDEREN.json")
-    data = compute_deflection_3d(0, 60, 100, 120)
-    save_json("data/ExtensionShae/AII_EI_Default.json", data)
+    data = compute_deflection_3d(0, 60, 100, 90)
+    save_json("data/ExtensionShae/BII_EI_test.json", data)
     
     anim_deflection(data, 10)

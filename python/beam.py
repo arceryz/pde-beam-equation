@@ -26,7 +26,7 @@ morison_enabled = True
 Ca = 0.33496
 Cd = 1.1
 rho_sea = 1030
-scenario = "mild"
+scenario = "medium"
 
 
 
@@ -50,6 +50,7 @@ sea_scenarios = {
 #
 earthquakes = [
    (1, 0.10), (0.5,1),(0.1,10) #II  
+   #(2,0.10), (1,1), (0.2,10)#III
 ]
 
 
@@ -77,7 +78,7 @@ defl_norm = 10
 # These variables dependent on the above and should not be modified.
 #
 wave_period, wave_amp, wave_length = sea_scenarios[scenario]
-I = pi / 4 * (R2**4 - R1**4)
+I = (pi / 4 * (R2**4 - R1**4))*(1*10**2)
 sigma = 2*pi/wave_period
 k = 2*pi/wave_length
 Volume = pi*R2**2
@@ -277,7 +278,7 @@ def deflection(xrange, trange):
     print("Computing inner products")
     Z = np.array(list(map(
         lambda ti: list(map(
-            lambda xi: np.inner(xvecs[xi], tvecs[ti]) + ae_list[ti], 
+            lambda xi: np.inner(xvecs[xi], tvecs[ti]), 
             range(len(xrange)))),
         range(len(trange)))))
     return Z, tvecs, xvecs, ae_list_diff, morison_list
