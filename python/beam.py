@@ -26,7 +26,7 @@ morison_enabled = True
 Ca = 0.33496
 Cd = 1.1
 rho_sea = 1030
-scenario = "rough"
+scenario = "mild"
 
 
 
@@ -36,7 +36,9 @@ scenario = "rough"
 # All units in seconds or meters.
 #
 sea_scenarios = {
-    "rough": (5.0, 1.5, 33.8)
+    "mild" : (5.7, 1.5, 33.8),
+    "medium":(8.6,4.1, 76.5),
+    "rough": (11.4,8.5,136)
 }
 
 
@@ -47,7 +49,7 @@ sea_scenarios = {
 # Multiple earthquakes can be computed for no additional cost!
 #
 earthquakes = [
-    (1.00, 0.10),
+   (1, 0.10), (0.5,1),(0.1,10) #II  
 ]
 
 
@@ -66,7 +68,7 @@ F_constant = 0
 motes = 10
 quad_lowp = 20
 dx = 1e-6
-cpu_count = 4
+cpu_count = 6
 defl_norm = 10
 
 
