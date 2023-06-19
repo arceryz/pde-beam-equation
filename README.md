@@ -1,4 +1,4 @@
-# Euler-Bernoulli beam equation python.
+# Analysis of windturbines at sea subject to waves and earthquakes.
 
 ![resonance](/pictures/c3_def.gif)
 
