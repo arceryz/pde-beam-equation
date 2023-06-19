@@ -201,19 +201,19 @@ def plot_time_test(n, tend, pts):
 # Deflection
 #
 def plot_deflection(x, tstart, tend, pts):
-	xlist = [ x ]
-	tlist = np.linspace(tstart, tend, pts)
-	ylist = np.transpose(deflection(xlist, tlist))[0]
+    xlist = [ x ]
+    tlist = np.linspace(tstart, tend, pts)
+    ylist = np.transpose(deflection(xlist, tlist)[0])[0]
 
-	maxv = max(ylist)
-	print("Max deflection=%f" % maxv)
+    print("Max deflection=%f" % max(ylist))
 
-	plt.figure()
+    plt.figure()
 	#plt.ylim(-defl_norm, defl_norm)
-	plt.title("Deflection u(x,t) at x=L in time.")
-	plt.xlabel("t (seconds)")
-	plt.ylabel("u (meters)")
-	plt.plot(tlist, ylist)
+    plt.title("Deflection u(x,t) at x=L in time.")
+    plt.xlabel("t (seconds)")
+    plt.ylabel("u (meters)")
+    plt.plot(tlist, ylist)
+    plt.show()
 
 def compute_deflection_3d(tstart, tend, x_pts, t_pts):
     tlist = np.linspace(tstart, tend, t_pts)

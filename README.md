@@ -1,11 +1,14 @@
 # Euler-Bernoulli beam equation python.
 
-![resonance](/pictures/resonance.png)
+![resonance](/pictures/c3_def.gif)
 
-This github repository contains the necessary scripts for simulating the
-Euler-Bernoulli beam equation with nonhomogenous forcing and fixed-free boundary
-conditions. The scripts are dedicated to analysing the eigenfrequencies of a
-windmill beam subject to force from the ocean.
+This github repository contains the necessary scripts for simulating a wind
+turbine in the ocean subject to forces of waves (Morison equations) and forces
+from earthquakes.
+
+The script can compute datasets for various scenarios and then plot them in an
+visualiser script called "Windmolentje". This visualiser shows the beam in real
+time being deflected, the excitation of various motes and plots of forces.
 
 There is only a few dependencies:
 - matplotlib
@@ -17,7 +20,8 @@ There is only a few dependencies:
 
 The simulations are computed in parallel with as many threads as specified by
 `cpu_count` default to 4. If running on a stronger computer make sure to
-increase this parameter.
+increase this parameter. Modify `beam.py` if you want to change the scenario and
+settings of the simulations. All plotting tools are inside `plots.py`.
 
 More resources can be found on
 [wikipedia](https://en.wikipedia.org/wiki/Euler%E2%80%93Bernoulli_beam_theory).

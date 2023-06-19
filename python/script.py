@@ -10,8 +10,8 @@ if __name__ == "__main__":
     print("Alfas: %s" % str(alfas))
 
     # Animations.
-    #data = load_json("data/VERANDEREN.json")
-    data = compute_deflection_3d(0, 60, 100, 90)
-    save_json("data/ExtensionShae/BII_EI_test.json", data)
+    data = load_json("data/Extension/CIII_EI_1000.json")
+    #data = compute_deflection_3d(0, 60, 100, 90)
+    #save_json("data/ExtensionShae/AI.json", data)
     
     anim_deflection(data, 10)
