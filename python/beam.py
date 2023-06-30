@@ -26,7 +26,7 @@ morison_enabled = True
 Ca = 0.33496
 Cd = 1.1
 rho_sea = 1030
-scenario = "mild"
+scenario = "rough"
 
 
 
@@ -49,8 +49,8 @@ sea_scenarios = {
 # Multiple earthquakes can be computed for no additional cost!
 #
 earthquakes = [
-   (1, 0.10), (0.5,1),(0.1,10) #II  
-   #(2,0.10), (1,1), (0.2,10)#III
+   (1, 0.10), (0.5,1),(0.1,10), #II  
+   (2,0.10), (1,1), (0.2,10)#III
 ]
 
 
@@ -61,15 +61,14 @@ earthquakes = [
 F_constant = 0
 
 
-
 #
 # Numerical settings.
 # Setting then number of motes higher is expensive.
 #
-motes = 10
+motes = 5
 quad_lowp = 20
 dx = 1e-6
-cpu_count = 6
+cpu_count = 4
 defl_norm = 10
 
 
@@ -78,7 +77,7 @@ defl_norm = 10
 # These variables dependent on the above and should not be modified.
 #
 wave_period, wave_amp, wave_length = sea_scenarios[scenario]
-I = (pi / 4 * (R2**4 - R1**4))*(1*10**2)
+I = (pi / 4 * (R2**4 - R1**4))
 sigma = 2*pi/wave_period
 k = 2*pi/wave_length
 Volume = pi*R2**2
@@ -187,15 +186,17 @@ def phi_eigenfunc(x, n):
     return y
 
 betas = np.zeros(motes)
-
-def beta(n):
-    y = integral(lambda x: phi_eigenfunc(x, n), 0, L) / L
-    return y
+betas_cosh1 = np.zeros(motes)
+betas_cosh2 = np.zeros(motes)
 
 def compute_betas():
-    for i in range(motes):
-        betas[i] = beta(i)
-
+    print("Computing betas")
+    for n in range(motes):
+        betas[n] = integral(lambda x: phi_eigenfunc(x, n), 0, L) / L
+        betas_cosh1[n] = integral(lambda x: cosh(k*x) * phi_eigenfunc(x, n), 0, H) / L
+        betas_cosh2[n] = integral(lambda x: cosh(k*x)**2 * phi_eigenfunc(x, n), 0, H) / L
+    print(betas_cosh1)
+    print(betas_cosh2)
 
 
 #
@@ -203,8 +204,24 @@ def compute_betas():
 # We neglect the initial conditions as zero to simplify bn.
 #
 def morison_eigencoeff(t, n):
-    y = integral(lambda x: morison(x,t)*phi_eigenfunc(x, n), 0, H) / L
-    return y
+    sk = sinh(k*H)
+
+    C_iner = pi * R2 ** 2 * rho_sea * (1+Ca) * -sigma**2/sk*wave_amp * betas_cosh1[n]
+    fi = C_iner * sin(sigma*t)
+
+    C_drag = R2*rho_sea*Cd * (sigma**2)*(wave_amp**2)/(sk**2) * betas_cosh2[n]
+    fd = C_drag * cos(sigma*t) * abs(cos(sigma*t))
+
+    return fd + fi
+
+def resonance_morison(t, n):
+    y_mor = 0
+    alfa = alfas[n]
+    if morison_enabled:
+        f = lambda s: morison_eigencoeff(s, n) * sin(alfa*(t-s))
+        y_mor = integral(f, 0, t)
+    return y_mor
+
 
 #
 # The resonance equation for sines is the integral <cos, sin> over t.
@@ -221,10 +238,7 @@ def time_coeff(t, n):
 
 
     # The morison resonance contribution.
-    y_mor = 0
-    if morison_enabled:
-        f = lambda s: morison_eigencoeff(s, n) * sin(alfa*(t-s))
-        y_mor = integral(f, 0, t)
+    y_mor = resonance_morison(t, n)
 
     # The earthquake resonance contribution.
     # If there are no earthquakes then y_eq remains zero and 
