@@ -23,9 +23,7 @@ The simulations are computed in parallel with as many threads as specified by
 increase this parameter. Modify `beam.py` if you want to change the scenario and
 settings of the simulations. All plotting tools are inside `plots.py`.
 
+The mathematics underlying this script is all described in detail in our report
+that you can find in this repository at [/Report.pdf](/Report.pdf). 
 More resources can be found on
 [wikipedia](https://en.wikipedia.org/wiki/Euler%E2%80%93Bernoulli_beam_theory).
-The mathematics underlying these scripts/formulas are all derived in a neat
-mathematical report (not yet available). This contains all the derivations for
-formulas implemented numerically here. Before programming there was lots of
-analytical solving, it is not magic.
